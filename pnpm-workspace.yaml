@@ -1,0 +1,9 @@
+packages:
+  - 'packages/*'
+  - 'backend'
+  - 'frontend'
+  - 'admin'
+allowBuilds:
+  esbuild: true
+  sharp: true
+  workerd: true

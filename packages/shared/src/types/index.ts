@@ -1,0 +1,17 @@
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+  };
+  timestamp: string;
+}
+
+export interface SystemHealthResponse {
+  success: boolean;
+  service: string;
+  version: string;
+  status: string;
+  timestamp: string;
+}

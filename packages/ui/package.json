@@ -1,0 +1,29 @@
+{
+  "name": "@student-os/ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles/*": "./src/styles/*",
+    "./dist/styles/*": "./dist/styles/*"
+  },
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc && mkdir -p dist/styles && cp src/styles/tokens.css dist/styles/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@student-os/config": "workspace:*",
+    "react": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "typescript": "^5.7.3"
+  }
+}
