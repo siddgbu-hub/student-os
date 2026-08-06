@@ -106,6 +106,22 @@ plannerRouter.get('/tasks', async (c) => {
   }
 });
 
+// GET /api/v1/planner/monthly?year=2026&month=8
+plannerRouter.get('/monthly', async (c) => {
+  const accountId = c.get('accountId');
+  const now = new Date();
+  const year = Number(c.req.query('year')) || now.getFullYear();
+  const month = Number(c.req.query('month')) || now.getMonth() + 1;
+
+  try {
+    const service = getPlannerService(c);
+    const summary = await service.getMonthlySummary(accountId, year, month, c.env.DB);
+    return c.json({ success: true, data: summary });
+  } catch (err: unknown) {
+    return c.json({ success: false, error: { code: 'INTERNAL_ERROR', message: (err as Error).message } }, 500);
+  }
+});
+
 // 5. Get Task Details by ID
 plannerRouter.get('/tasks/:id', async (c) => {
   const accountId = c.get('accountId');

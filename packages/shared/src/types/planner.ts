@@ -42,3 +42,27 @@ export interface WeeklyPlanSummaryDTO {
   completedDurationMinutes: number;
   dailySummaries: DailyPlanSummaryDTO[];
 }
+
+export interface MonthlyCalendarDayDTO {
+  date: string; // YYYY-MM-DD
+  studyMinutes: number;
+  plannedTasksCount: number;
+  completedTasksCount: number;
+  revisionCount: number;
+  completionPercentage: number;
+  hasActivity: boolean;
+}
+
+export interface MonthlyPlanSummaryDTO {
+  year: number;
+  month: number;
+  plannedHours: number;
+  completedHours: number;
+  remainingHours: number;
+  completionPercentage: number;
+  completedTasksCount: number;
+  missedTasksCount: number;
+  studyStreakDays: number;
+  revisionSessionsCount: number;
+  days: MonthlyCalendarDayDTO[];
+}

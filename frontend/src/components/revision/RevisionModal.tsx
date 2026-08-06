@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@student-os/ui';
 import { RevisionItemDTO, SubjectDTO, ChapterDTO } from '@student-os/shared';
 
@@ -28,6 +28,16 @@ export const RevisionModal: React.FC<RevisionModalProps> = ({
   const [notes, setNotes] = useState<string>(itemToReschedule?.notes || '');
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

@@ -11,6 +11,8 @@ DELETE FROM planner_tasks WHERE account_id = 'acc-student-demo-001';
 DELETE FROM study_sessions WHERE account_id = 'acc-student-demo-001';
 DELETE FROM chapters WHERE account_id = 'acc-student-demo-001';
 DELETE FROM subjects WHERE account_id = 'acc-student-demo-001';
+DELETE FROM user_preferences WHERE account_id = 'acc-student-demo-001';
+DELETE FROM user_profiles WHERE account_id = 'acc-student-demo-001';
 DELETE FROM sessions WHERE account_id = 'acc-student-demo-001';
 DELETE FROM devices WHERE account_id = 'acc-student-demo-001';
 DELETE FROM accounts WHERE account_id = 'acc-student-demo-001' OR email = 'student@example.com';
@@ -21,6 +23,12 @@ VALUES ('acc-student-demo-001', 'student@example.com', '2026-06-27T04:30:00.000Z
 
 INSERT INTO devices (device_id, account_id, device_model, os_version, is_active, registered_at, last_active_at)
 VALUES ('dev-student-demo-001', 'acc-student-demo-001', 'MacBook Pro', 'macOS', 1, '2026-06-27T04:30:00.000Z', '2026-08-06T04:30:00.000Z');
+
+INSERT INTO user_profiles (account_id, full_name, avatar_url, institution_name, course, class_year, stream, examination_type, preferred_daily_study_target_minutes, preferred_session_duration_minutes, preferred_study_time, preferred_revision_strategy, preferred_planner_view, created_at, updated_at)
+VALUES ('acc-student-demo-001', 'Alex Student', NULL, 'State University', 'B.Tech Computer Science', '3rd Year', 'Engineering', 'Final Exams', 120, 45, 'morning', 'spaced', 'day', '2026-06-27T04:30:00.000Z', '2026-08-06T04:30:00.000Z');
+
+INSERT INTO user_preferences (account_id, theme, date_format, time_format, first_day_of_week, time_zone, show_completed_blocks, break_reminder_interval_minutes, updated_at)
+VALUES ('acc-student-demo-001', 'system', 'YYYY-MM-DD', '24h', 'monday', 'UTC', 1, 50, '2026-08-06T04:30:00.000Z');
 
 -- 2. Create Subjects
 INSERT INTO subjects (id, account_id, name, created_at, updated_at) VALUES
@@ -164,3 +172,10 @@ INSERT INTO revision_sessions (
 ('rev-sess-hist-26', 'acc-student-demo-001', 'rev-today-1', 'subj-phys', 'chap-phys-1', '2026-07-11T09:30:00.000Z', '2026-07-11T10:00:00.000Z', 1800, 0, 1, 'completed', 'Routine historical revision', '2026-07-11T09:30:00.000Z', '2026-07-11T10:00:00.000Z'),
 ('rev-sess-hist-28', 'acc-student-demo-001', 'rev-today-1', 'subj-cs', 'chap-cs-1', '2026-07-09T09:30:00.000Z', '2026-07-09T09:55:00.000Z', 1500, 0, 1, 'completed', 'Routine historical revision', '2026-07-09T09:30:00.000Z', '2026-07-09T09:55:00.000Z'),
 ('rev-sess-hist-30', 'acc-student-demo-001', 'rev-today-1', 'subj-math', 'chap-math-2', '2026-07-07T09:30:00.000Z', '2026-07-07T09:50:00.000Z', 1200, 0, 1, 'completed', 'Routine historical revision', '2026-07-07T09:30:00.000Z', '2026-07-07T09:50:00.000Z');
+
+-- 7. Create Active Exam Goal
+INSERT INTO exam_goals (
+  id, account_id, exam_name, exam_date, target_score, target_daily_minutes,
+  target_total_chapters, completed_chapters, status, created_at, updated_at
+) VALUES
+('goal-dev-001', 'acc-student-demo-001', 'JEE Main 2027', '2027-01-15', '99.5 Percentile', 180, 50, 18, 'active', '2026-07-27T04:30:00.000Z', '2026-08-06T04:30:00.000Z');

@@ -4,6 +4,8 @@ import {
   PlannerTaskDTO,
   DailyPlanSummaryDTO,
   WeeklyPlanSummaryDTO,
+  MonthlyPlanSummaryDTO,
+  MonthlyCalendarDayDTO,
   CreatePlannerTaskInput,
   UpdatePlannerTaskInput,
   ReschedulePlannerTaskInput,
@@ -229,6 +231,94 @@ export class PlannerService {
       throw new Error('TASK_NOT_FOUND');
     }
     await this.repo.deleteTask(taskId, accountId);
+  }
+
+  async getMonthlySummary(
+    accountId: string,
+    year: number,
+    month: number,
+    db: D1Database
+  ): Promise<MonthlyPlanSummaryDTO> {
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const startDateStr = `${year}-${String(month).padStart(2, '0')}-01`;
+    const endDateStr = `${year}-${String(month).padStart(2, '0')}-${String(daysInMonth).padStart(2, '0')}`;
+
+    const [tasksRes, studyRes, revRes] = await Promise.all([
+      db
+        .prepare(`SELECT planned_date, status, estimated_duration_minutes FROM planner_tasks WHERE account_id = ? AND planned_date >= ? AND planned_date <= ?`)
+        .bind(accountId, startDateStr, endDateStr)
+        .all<{ planned_date: string; status: string; estimated_duration_minutes: number }>(),
+      db
+        .prepare(`SELECT substr(start_time, 1, 10) as date_str, duration_seconds FROM study_sessions WHERE account_id = ? AND status = 'completed' AND start_time >= ? AND start_time <= ?`)
+        .bind(accountId, `${startDateStr}T00:00:00.000Z`, `${endDateStr}T23:59:59.999Z`)
+        .all<{ date_str: string; duration_seconds: number }>(),
+      db
+        .prepare(`SELECT substr(start_time, 1, 10) as date_str FROM revision_sessions WHERE account_id = ? AND status = 'completed' AND start_time >= ? AND start_time <= ?`)
+        .bind(accountId, `${startDateStr}T00:00:00.000Z`, `${endDateStr}T23:59:59.999Z`)
+        .all<{ date_str: string }>(),
+    ]);
+
+    const tasks = tasksRes.results || [];
+    const studySessions = studyRes.results || [];
+    const revisionSessions = revRes.results || [];
+
+    const days: MonthlyCalendarDayDTO[] = [];
+    let totalPlannedMins = 0;
+    let totalCompletedMins = 0;
+    let totalCompletedTasks = 0;
+    let totalMissedTasks = 0;
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+      const dayTasks = tasks.filter((t) => t.planned_date === dateStr);
+      const dayStudy = studySessions.filter((s) => s.date_str === dateStr);
+      const dayRevs = revisionSessions.filter((r) => r.date_str === dateStr);
+
+      const dayStudyMins = Math.round(dayStudy.reduce((acc, s) => acc + s.duration_seconds, 0) / 60);
+      const dayPlannedTasks = dayTasks.length;
+      const dayCompletedTasks = dayTasks.filter((t) => t.status === 'completed').length;
+      const dayMissedTasks = dayTasks.filter((t) => t.status === 'deferred' || t.status === 'skipped').length;
+      const dayPlannedMins = dayTasks.reduce((acc, t) => acc + t.estimated_duration_minutes, 0);
+
+      totalPlannedMins += dayPlannedMins;
+      totalCompletedMins += dayStudyMins;
+      totalCompletedTasks += dayCompletedTasks;
+      totalMissedTasks += dayMissedTasks;
+
+      const completionPct = dayPlannedTasks > 0 ? Math.round((dayCompletedTasks / dayPlannedTasks) * 100) : 100;
+      const hasActivity = dayStudyMins > 0 || dayPlannedTasks > 0 || dayRevs.length > 0;
+
+      days.push({
+        date: dateStr,
+        studyMinutes: dayStudyMins,
+        plannedTasksCount: dayPlannedTasks,
+        completedTasksCount: dayCompletedTasks,
+        revisionCount: dayRevs.length,
+        completionPercentage: completionPct,
+        hasActivity,
+      });
+    }
+
+    const plannedHours = Number((totalPlannedMins / 60).toFixed(1));
+    const completedHours = Number((totalCompletedMins / 60).toFixed(1));
+    const remainingHours = Math.max(0, Number((plannedHours - completedHours).toFixed(1)));
+    const totalMonthTasks = totalCompletedTasks + totalMissedTasks;
+    const completionPercentage = totalMonthTasks > 0 ? Math.round((totalCompletedTasks / totalMonthTasks) * 100) : 100;
+
+    return {
+      year,
+      month,
+      plannedHours,
+      completedHours,
+      remainingHours,
+      completionPercentage,
+      completedTasksCount: totalCompletedTasks,
+      missedTasksCount: totalMissedTasks,
+      studyStreakDays: days.filter((d) => d.hasActivity).length,
+      revisionSessionsCount: revisionSessions.length,
+      days,
+    };
   }
 
   private mapTaskToDTO(record: PlannerTaskRecord): PlannerTaskDTO {

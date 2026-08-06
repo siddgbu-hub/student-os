@@ -5,6 +5,11 @@ import { useStudy } from '../../context/StudyContext.js';
 import { TaskModal } from '../../components/planner/TaskModal.js';
 import { PlannerTaskDTO, SubjectDTO, ChapterDTO, ReschedulePlannerTaskInput } from '@student-os/shared';
 
+import { MonthlyCalendar } from '../../components/planner/MonthlyCalendar.js';
+import { GoalSummaryCard } from '../../components/goal/GoalSummaryCard.js';
+import { GoalModal } from '../../components/goal/GoalModal.js';
+import { useGoal } from '../../context/GoalContext.js';
+
 function formatMinutes(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
@@ -27,10 +32,13 @@ export const PlannerPage: React.FC = () => {
   } = usePlanner();
 
   const { subjects, chapters } = useStudy();
+  const { goalProgress, saveGoal, updateGoal, deleteGoal } = useGoal();
 
-  const [activeTab, setActiveTab] = useState<'daily' | 'weekly'>('daily');
+  const [activeTab, setActiveTab] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [taskToEdit, setTaskToEdit] = useState<PlannerTaskDTO | null>(null);
+
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState<boolean>(false);
 
   const handleOpenCreateModal = () => {
     setTaskToEdit(null);
@@ -132,6 +140,23 @@ export const PlannerPage: React.FC = () => {
             >
               Weekly Overview
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('monthly')}
+              style={{
+                padding: '4px 12px',
+                borderRadius: 'var(--radius-sm)',
+                border: 'none',
+                backgroundColor: activeTab === 'monthly' ? 'var(--color-bg-primary)' : 'transparent',
+                color: activeTab === 'monthly' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                fontWeight: activeTab === 'monthly' ? '600' : '500',
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+                boxShadow: activeTab === 'monthly' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              }}
+            >
+              Monthly Calendar
+            </button>
           </div>
 
           <Button type="button" variant="primary" onClick={handleOpenCreateModal} style={{ height: '36px', fontSize: '0.85rem' }}>
@@ -140,8 +165,23 @@ export const PlannerPage: React.FC = () => {
         </div>
       </div>
 
+      {/* DASHBOARD GOAL CARD */}
+      <GoalSummaryCard
+        progress={goalProgress}
+        onEdit={() => setIsGoalModalOpen(true)}
+        onCreate={() => setIsGoalModalOpen(true)}
+      />
+
       {/* VIEW CONTENT */}
-      {activeTab === 'daily' ? (
+      {activeTab === 'monthly' ? (
+        <MonthlyCalendar
+          selectedDate={selectedDate}
+          onSelectDate={(dateStr) => {
+            setSelectedDate(dateStr);
+            setActiveTab('daily');
+          }}
+        />
+      ) : activeTab === 'daily' ? (
         /* DAILY PLANNER VIEW */
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-md)' }}>
           {/* DAILY PLAN DATE PICKER & METRIC CARDS */}
@@ -488,6 +528,26 @@ export const PlannerPage: React.FC = () => {
             await createTask(input);
           }
         }}
+      />
+
+      {/* GOAL CREATION & EDIT MODAL */}
+      <GoalModal
+        isOpen={isGoalModalOpen}
+        goalToEdit={goalProgress?.goal || null}
+        onClose={() => setIsGoalModalOpen(false)}
+        onSave={async (input) => {
+          if (goalProgress?.goal) {
+            await updateGoal(input);
+          } else {
+            await saveGoal(input);
+          }
+        }}
+        onDelete={goalProgress?.goal ? async () => {
+          if (confirm(`Delete exam goal "${goalProgress.goal.examName}"?`)) {
+            await deleteGoal();
+            setIsGoalModalOpen(false);
+          }
+        } : undefined}
       />
     </div>
   );

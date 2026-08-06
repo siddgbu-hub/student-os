@@ -77,6 +77,8 @@ DELETE FROM planner_tasks WHERE account_id = '${accountId}';
 DELETE FROM study_sessions WHERE account_id = '${accountId}';
 DELETE FROM chapters WHERE account_id = '${accountId}';
 DELETE FROM subjects WHERE account_id = '${accountId}';
+DELETE FROM user_preferences WHERE account_id = '${accountId}';
+DELETE FROM user_profiles WHERE account_id = '${accountId}';
 DELETE FROM sessions WHERE account_id = '${accountId}';
 DELETE FROM devices WHERE account_id = '${accountId}';
 DELETE FROM accounts WHERE account_id = '${accountId}' OR email = '${email}';
@@ -87,6 +89,12 @@ VALUES ('${accountId}', '${email}', '${getRelativeIsoStr(-40)}', '${getRelativeI
 
 INSERT INTO devices (device_id, account_id, device_model, os_version, is_active, registered_at, last_active_at)
 VALUES ('${deviceId}', '${accountId}', 'MacBook Pro', 'macOS', 1, '${getRelativeIsoStr(-40)}', '${getRelativeIsoStr(0)}');
+
+INSERT INTO user_profiles (account_id, full_name, avatar_url, institution_name, course, class_year, stream, examination_type, preferred_daily_study_target_minutes, preferred_session_duration_minutes, preferred_study_time, preferred_revision_strategy, preferred_planner_view, created_at, updated_at)
+VALUES ('${accountId}', 'Alex Student', NULL, 'State University', 'B.Tech Computer Science', '3rd Year', 'Engineering', 'Final Exams', 120, 45, 'morning', 'spaced', 'day', '${getRelativeIsoStr(-40)}', '${getRelativeIsoStr(0)}');
+
+INSERT INTO user_preferences (account_id, theme, date_format, time_format, first_day_of_week, time_zone, show_completed_blocks, break_reminder_interval_minutes, updated_at)
+VALUES ('${accountId}', 'system', 'YYYY-MM-DD', '24h', 'monday', 'UTC', 1, 50, '${getRelativeIsoStr(0)}');
 
 -- 2. Create Subjects
 INSERT INTO subjects (id, account_id, name, created_at, updated_at) VALUES
@@ -165,6 +173,13 @@ INSERT INTO revision_sessions (
 ('rev-sess-1', '${accountId}', 'rev-today-1', 'subj-math', 'chap-math-3', '${getRelativeIsoStr(-1, 15, 0)}', '${getRelativeIsoStr(-1, 15, 20)}', 1200, 0, 1, 'completed', 'First recall review done', '${getRelativeIsoStr(-1, 15, 0)}', '${getRelativeIsoStr(-1, 15, 20)}'),
 ('rev-sess-2', '${accountId}', 'rev-comp-1', 'subj-eng', 'chap-eng-1', '${getRelativeIsoStr(-1, 16, 0)}', '${getRelativeIsoStr(-1, 16, 15)}', 900, 0, 3, 'completed', 'Final revision completed', '${getRelativeIsoStr(-1, 16, 0)}', '${getRelativeIsoStr(-1, 16, 15)}'),
 ${historicalRevisionSessions.join(',\n')};
+
+-- 7. Create Active Exam Goal
+INSERT INTO exam_goals (
+  id, account_id, exam_name, exam_date, target_score, target_daily_minutes,
+  target_total_chapters, completed_chapters, status, created_at, updated_at
+) VALUES
+('goal-dev-001', '${accountId}', 'JEE Main 2027', '2027-01-15', '99.5 Percentile', 180, 50, 18, 'active', '${getRelativeIsoStr(-10)}', '${getRelativeIsoStr(0)}');
 `;
 
   return sql;

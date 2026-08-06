@@ -4,18 +4,25 @@ import { StudyProvider } from './context/StudyContext.js';
 import { PlannerProvider } from './context/PlannerContext.js';
 import { RevisionProvider } from './context/RevisionContext.js';
 import { AnalyticsProvider } from './context/AnalyticsContext.js';
+import { AccountProvider, useAccount } from './context/AccountContext.js';
+import { ToastProvider } from './context/ToastContext.js';
+import { GoalProvider } from './context/GoalContext.js';
 import { ProtectedRoute } from './router/ProtectedRoute.js';
+import { DashboardPage } from './pages/dashboard/DashboardPage.js';
 import { StudyPage } from './pages/study/StudyPage.js';
 import { PlannerPage } from './pages/planner/PlannerPage.js';
 import { RevisionPage } from './pages/revision/RevisionPage.js';
 import { AnalyticsPage } from './pages/analytics/AnalyticsPage.js';
+import { AccountPage } from './pages/account/AccountPage.js';
 import { Button } from '@student-os/ui';
 
 const WorkspaceShell: React.FC = () => {
   const { account, logout } = useAuth();
-  const [activeModule, setActiveModule] = useState<'study' | 'planner' | 'revision' | 'analytics'>('study');
+  const { profile } = useAccount();
+  const [activeModule, setActiveModule] = useState<'dashboard' | 'study' | 'planner' | 'revision' | 'analytics' | 'account'>('dashboard');
 
-  const initial = account?.email ? account.email.charAt(0).toUpperCase() : 'S';
+  const displayName = profile?.fullName || 'Student';
+  const initial = displayName.charAt(0).toUpperCase();
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}>
@@ -84,85 +91,47 @@ const WorkspaceShell: React.FC = () => {
                 marginLeft: 'var(--spacing-md)',
               }}
             >
-              <button
-                type="button"
-                onClick={() => setActiveModule('study')}
-                style={{
-                  padding: '4px 14px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: 'none',
-                  backgroundColor: activeModule === 'study' ? 'var(--color-bg-secondary)' : 'transparent',
-                  color: activeModule === 'study' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                  fontWeight: activeModule === 'study' ? '600' : '500',
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  boxShadow: activeModule === 'study' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                Study Engine
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveModule('planner')}
-                style={{
-                  padding: '4px 14px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: 'none',
-                  backgroundColor: activeModule === 'planner' ? 'var(--color-bg-secondary)' : 'transparent',
-                  color: activeModule === 'planner' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                  fontWeight: activeModule === 'planner' ? '600' : '500',
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  boxShadow: activeModule === 'planner' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                Planner
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveModule('revision')}
-                style={{
-                  padding: '4px 14px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: 'none',
-                  backgroundColor: activeModule === 'revision' ? 'var(--color-bg-secondary)' : 'transparent',
-                  color: activeModule === 'revision' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                  fontWeight: activeModule === 'revision' ? '600' : '500',
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  boxShadow: activeModule === 'revision' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                Revision
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveModule('analytics')}
-                style={{
-                  padding: '4px 14px',
-                  borderRadius: 'var(--radius-sm)',
-                  border: 'none',
-                  backgroundColor: activeModule === 'analytics' ? 'var(--color-bg-secondary)' : 'transparent',
-                  color: activeModule === 'analytics' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                  fontWeight: activeModule === 'analytics' ? '600' : '500',
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  boxShadow: activeModule === 'analytics' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                Analytics
-              </button>
+              {[
+                { id: 'dashboard', label: 'Dashboard' },
+                { id: 'study', label: 'Study Engine' },
+                { id: 'planner', label: 'Planner' },
+                { id: 'revision', label: 'Revision' },
+                { id: 'analytics', label: 'Analytics' },
+                { id: 'account', label: 'Account' },
+              ].map((item) => {
+                const isActive = activeModule === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveModule(item.id as typeof activeModule)}
+                    style={{
+                      padding: '5px 14px',
+                      borderRadius: 'var(--radius-sm)',
+                      border: 'none',
+                      backgroundColor: isActive ? 'var(--color-bg-secondary)' : 'transparent',
+                      color: isActive ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                      fontWeight: isActive ? '700' : '500',
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.08), inset 0 -2px 0 var(--color-accent)' : 'none',
+                      transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
+                      position: 'relative',
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
             </nav>
           </div>
 
           {/* User Profile & Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
             {account?.email && (
-              <div
+              <button
+                type="button"
+                onClick={() => setActiveModule('account')}
                 title={account.email}
                 style={{
                   display: 'flex',
@@ -172,6 +141,7 @@ const WorkspaceShell: React.FC = () => {
                   borderRadius: '16px',
                   backgroundColor: 'var(--color-bg-primary)',
                   border: '1px solid var(--color-border)',
+                  cursor: 'pointer',
                 }}
               >
                 <div
@@ -191,9 +161,9 @@ const WorkspaceShell: React.FC = () => {
                   {initial}
                 </div>
                 <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: '500' }}>
-                  Student
+                  {displayName}
                 </span>
-              </div>
+              </button>
             )}
             <Button
               variant="secondary"
@@ -208,14 +178,18 @@ const WorkspaceShell: React.FC = () => {
 
       {/* Main Content Container */}
       <main style={{ maxWidth: '1180px', margin: '0 auto', padding: 'var(--spacing-md)' }}>
-        {activeModule === 'study' ? (
+        {activeModule === 'dashboard' ? (
+          <DashboardPage onNavigate={setActiveModule} />
+        ) : activeModule === 'study' ? (
           <StudyPage />
         ) : activeModule === 'planner' ? (
           <PlannerPage />
         ) : activeModule === 'revision' ? (
           <RevisionPage />
-        ) : (
+        ) : activeModule === 'analytics' ? (
           <AnalyticsPage />
+        ) : (
+          <AccountPage />
         )}
       </main>
     </div>
@@ -224,18 +198,24 @@ const WorkspaceShell: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <ProtectedRoute>
-        <StudyProvider>
-          <PlannerProvider>
-            <RevisionProvider>
-              <AnalyticsProvider>
-                <WorkspaceShell />
-              </AnalyticsProvider>
-            </RevisionProvider>
-          </PlannerProvider>
-        </StudyProvider>
-      </ProtectedRoute>
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <ProtectedRoute>
+          <StudyProvider>
+            <PlannerProvider>
+              <RevisionProvider>
+                <AnalyticsProvider>
+                  <AccountProvider>
+                    <GoalProvider>
+                      <WorkspaceShell />
+                    </GoalProvider>
+                  </AccountProvider>
+                </AnalyticsProvider>
+              </RevisionProvider>
+            </PlannerProvider>
+          </StudyProvider>
+        </ProtectedRoute>
+      </AuthProvider>
+    </ToastProvider>
   );
 };

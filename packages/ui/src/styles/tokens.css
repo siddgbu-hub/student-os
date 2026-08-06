@@ -27,6 +27,18 @@
   --radius-lg: 0.75rem;
 }
 
+[data-theme='light'] {
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f4f4f5;
+  --color-bg-tertiary: #e4e4e7;
+  --color-text-primary: #18181b;
+  --color-text-secondary: #71717a;
+  --color-text-muted: #a1a1aa;
+  --color-border: #e4e4e7;
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+}
+
 [data-theme='dark'] {
   --color-bg-primary: #09090b;
   --color-bg-secondary: #18181b;
@@ -40,6 +52,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']),
   [data-theme='system'] {
     --color-bg-primary: #09090b;
     --color-bg-secondary: #18181b;

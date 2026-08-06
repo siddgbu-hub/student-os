@@ -46,6 +46,16 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, taskToEdit, defaul
     }
   }, [taskToEdit, isOpen, defaultDate, subjects]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const availableChapters = chapters.filter((c) => c.subjectId === subjectId);

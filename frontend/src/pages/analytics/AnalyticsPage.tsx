@@ -1,11 +1,14 @@
 import React from 'react';
 import { useAnalytics } from '../../context/AnalyticsContext.js';
+import { useGoal } from '../../context/GoalContext.js';
 import { TimePeriod } from '@student-os/shared';
 import { TrendBarChart } from '../../components/analytics/TrendBarChart.js';
 import { SubjectDistributionChart } from '../../components/analytics/SubjectDistributionChart.js';
+import { GoalSummaryCard } from '../../components/goal/GoalSummaryCard.js';
 
 export const AnalyticsPage: React.FC = () => {
   const { dashboard, period, setPeriod, loading, error } = useAnalytics();
+  const { goalProgress } = useGoal();
 
   const handlePeriodChange = (newPeriod: TimePeriod) => {
     setPeriod(newPeriod);
@@ -50,6 +53,9 @@ export const AnalyticsPage: React.FC = () => {
           <strong>⚠️ {error}</strong>
         </div>
       )}
+
+      {/* EXAM GOAL SUMMARY CARD */}
+      <GoalSummaryCard progress={goalProgress} />
 
       {/* DASHBOARD HEADER & PERIOD TABS */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--spacing-sm)' }}>
