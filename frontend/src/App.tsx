@@ -3,15 +3,17 @@ import { AuthProvider, useAuth } from './context/AuthContext.js';
 import { StudyProvider } from './context/StudyContext.js';
 import { PlannerProvider } from './context/PlannerContext.js';
 import { RevisionProvider } from './context/RevisionContext.js';
+import { AnalyticsProvider } from './context/AnalyticsContext.js';
 import { ProtectedRoute } from './router/ProtectedRoute.js';
 import { StudyPage } from './pages/study/StudyPage.js';
 import { PlannerPage } from './pages/planner/PlannerPage.js';
 import { RevisionPage } from './pages/revision/RevisionPage.js';
+import { AnalyticsPage } from './pages/analytics/AnalyticsPage.js';
 import { Button } from '@student-os/ui';
 
 const WorkspaceShell: React.FC = () => {
   const { account, logout } = useAuth();
-  const [activeModule, setActiveModule] = useState<'study' | 'planner' | 'revision'>('study');
+  const [activeModule, setActiveModule] = useState<'study' | 'planner' | 'revision' | 'analytics'>('study');
 
   const initial = account?.email ? account.email.charAt(0).toUpperCase() : 'S';
 
@@ -136,6 +138,24 @@ const WorkspaceShell: React.FC = () => {
               >
                 Revision
               </button>
+              <button
+                type="button"
+                onClick={() => setActiveModule('analytics')}
+                style={{
+                  padding: '4px 14px',
+                  borderRadius: 'var(--radius-sm)',
+                  border: 'none',
+                  backgroundColor: activeModule === 'analytics' ? 'var(--color-bg-secondary)' : 'transparent',
+                  color: activeModule === 'analytics' ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
+                  fontWeight: activeModule === 'analytics' ? '600' : '500',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  boxShadow: activeModule === 'analytics' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                Analytics
+              </button>
             </nav>
           </div>
 
@@ -188,7 +208,15 @@ const WorkspaceShell: React.FC = () => {
 
       {/* Main Content Container */}
       <main style={{ maxWidth: '1180px', margin: '0 auto', padding: 'var(--spacing-md)' }}>
-        {activeModule === 'study' ? <StudyPage /> : activeModule === 'planner' ? <PlannerPage /> : <RevisionPage />}
+        {activeModule === 'study' ? (
+          <StudyPage />
+        ) : activeModule === 'planner' ? (
+          <PlannerPage />
+        ) : activeModule === 'revision' ? (
+          <RevisionPage />
+        ) : (
+          <AnalyticsPage />
+        )}
       </main>
     </div>
   );
@@ -201,7 +229,9 @@ export const App: React.FC = () => {
         <StudyProvider>
           <PlannerProvider>
             <RevisionProvider>
-              <WorkspaceShell />
+              <AnalyticsProvider>
+                <WorkspaceShell />
+              </AnalyticsProvider>
             </RevisionProvider>
           </PlannerProvider>
         </StudyProvider>
