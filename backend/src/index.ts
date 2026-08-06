@@ -1,6 +1,9 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { authRouter } from './modules/auth/auth.controller.js';
+import { studyRouter } from './modules/study/study.controller.js';
+import { plannerRouter } from './modules/planner/planner.controller.js';
+import { revisionRouter } from './modules/revision/revision.controller.js';
 
 export interface Env {
   DB: D1Database;
@@ -24,6 +27,9 @@ app.get('/api/v1/health', (c) => {
 });
 
 app.route('/api/v1/auth', authRouter);
+app.route('/api/v1/study', studyRouter);
+app.route('/api/v1/planner', plannerRouter);
+app.route('/api/v1/revision', revisionRouter);
 
 app.onError((err, c) => {
   return c.json(

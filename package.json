@@ -8,7 +8,8 @@
     "build": "pnpm --filter @student-os/shared run build && pnpm --filter @student-os/config run build && pnpm --filter @student-os/ui run build && pnpm --filter @student-os/backend run build && pnpm --filter @student-os/frontend run build && pnpm --filter @student-os/admin run build",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx,json,css,md}\"",
-    "typecheck": "pnpm -r run typecheck"
+    "typecheck": "pnpm -r run typecheck",
+    "db:seed": "npx tsx database/seed-dev-db.ts && sqlite3 backend/.wrangler/state/v3/d1/miniflare-D1DatabaseObject/32b2b45efb1dc51ec8ff7d22a1ccc55a013baf2d5329648fbded2ce1b81fd421.sqlite < database/seed_dev.sql"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.24.0",
