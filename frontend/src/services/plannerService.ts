@@ -7,8 +7,9 @@ import {
   ReschedulePlannerTaskInput,
 } from '@student-os/shared';
 import { defaultStorage } from '../offline/localStorageAdapter.js';
+import { API_BASE_URL } from '@/config/api';
 
-const API_BASE = '/api/v1/planner';
+const API_BASE = `${API_BASE_URL}/api/v1/planner`;
 
 function getAuthHeaders(token: string, deviceId: string): HeadersInit {
   return {

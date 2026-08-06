@@ -1,6 +1,7 @@
 import { GoalProgressDTO, CreateGoalInput, UpdateGoalInput } from '@student-os/shared';
+import { API_BASE_URL as API_HOST } from '@/config/api';
 
-const API_BASE_URL = '/api/v1/goal';
+const API_BASE_URL = `${API_HOST}/api/v1/goal`;
 
 class LocalStorageAdapter {
   private getStorageKey(key: string): string {

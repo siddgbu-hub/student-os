@@ -23,6 +23,7 @@ import { useGoal } from '../../context/GoalContext.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { Button } from '@student-os/ui';
 import { DailyPlanSummaryDTO, GoalBadgeStatus } from '@student-os/shared';
+import { API_BASE_URL } from '@/config/api';
 
 // ─── Navigation type ──────────────────────────────────────────────────────────
 type NavModule = 'dashboard' | 'study' | 'planner' | 'revision' | 'analytics' | 'account';
@@ -285,7 +286,7 @@ const ActivityHeatmap: React.FC<{ onOpenPlanner: () => void }> = ({ onOpenPlanne
 
     const fetchMonth = async (y: number, m: number) => {
       try {
-        const res = await fetch(`/api/v1/planner/monthly?year=${y}&month=${m}`, {
+        const res = await fetch(`${API_BASE_URL}/api/v1/planner/monthly?year=${y}&month=${m}`, {
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'x-device-id': deviceId },
         });
         const json = await res.json();
@@ -1163,7 +1164,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   const fetchYesterday = useCallback(async () => {
     if (!token) return;
     try {
-      const res = await fetch(`/api/v1/planner/tasks/today?date=${isoDateOffset(-1)}`, {
+      const res = await fetch(`${API_BASE_URL}/api/v1/planner/tasks/today?date=${isoDateOffset(-1)}`, {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, 'x-device-id': deviceId },
       });
       const json = await res.json();

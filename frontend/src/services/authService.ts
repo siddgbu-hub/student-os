@@ -1,4 +1,5 @@
 import { AuthResponseDTO } from '@student-os/shared';
+import { API_BASE_URL } from '@/config/api';
 
 export interface DeviceInfo {
   deviceId: string;
@@ -15,7 +16,7 @@ export function getOrCreateDeviceId(): string {
   return deviceId;
 }
 
-const API_BASE = '/api/v1/auth';
+const API_BASE = `${API_BASE_URL}/api/v1/auth`;
 
 export async function sendEmailOtp(email: string): Promise<{ success: boolean; message: string; error?: string }> {
   try {

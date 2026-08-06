@@ -15,7 +15,7 @@
   },
   "scripts": {
     "dev": "tsc --watch",
-    "build": "tsc && mkdir -p dist/styles && cp src/styles/tokens.css dist/styles/",
+    "build": "pnpm --filter @student-os/config build && tsc && mkdir -p dist/styles && cp src/styles/tokens.css dist/styles/",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

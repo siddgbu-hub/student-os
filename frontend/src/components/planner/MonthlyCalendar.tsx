@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MonthlyPlanSummaryDTO } from '@student-os/shared';
 import { Button } from '@student-os/ui';
+import { API_BASE_URL } from '@/config/api';
 
 interface MonthlyCalendarProps {
   selectedDate: string;
@@ -23,7 +24,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ selectedDate, 
     const fetchMonthlySummary = async () => {
       try {
         const token = localStorage.getItem('student_os_session_token');
-        const res = await fetch(`/api/v1/planner/monthly?year=${currentYear}&month=${currentMonth}`, {
+        const res = await fetch(`${API_BASE_URL}/api/v1/planner/monthly?year=${currentYear}&month=${currentMonth}`, {
           headers: {
             'Content-Type': 'application/json',
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
