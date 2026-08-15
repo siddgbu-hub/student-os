@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, UserX, AlertTriangle, AlertCircle, ShieldCheck } from 'lucide-react';
 import { adminApiClient, AdminApiError } from '../services/adminApiClient.js';
 import { Button } from './ui/Button.js';
@@ -81,9 +82,9 @@ export const DeactivateAccountModal: React.FC<DeactivateAccountModalProps> = ({
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="deactivate-modal-title"
@@ -137,7 +138,7 @@ export const DeactivateAccountModal: React.FC<DeactivateAccountModalProps> = ({
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Email:</span>
-              <span className="font-mono text-slate-300">{studentEmail}</span>
+              <span className="font-mono text-slate-300 break-all">{studentEmail}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-slate-400">Account ID:</span>
@@ -170,26 +171,25 @@ export const DeactivateAccountModal: React.FC<DeactivateAccountModalProps> = ({
               placeholder="e.g., Student request, terms violation, or security investigation..."
               maxLength={500}
               rows={2}
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all resize-none"
+              className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-white text-xs placeholder-slate-500 focus:outline-none focus:border-red-500 transition-colors resize-none"
             />
           </div>
 
-          {/* Explicit Confirmation Input */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1.5">
-              Type <span className="font-mono text-red-400 font-bold">DEACTIVATE</span> to confirm
+          {/* Confirmation Challenge Input */}
+          <div className="pt-1">
+            <label className="block text-xs font-semibold text-red-400 mb-1.5">
+              Type <span className="font-mono font-bold text-white">DEACTIVATE</span> to confirm suspension
             </label>
             <input
               type="text"
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder="DEACTIVATE"
-              autoComplete="off"
-              className="w-full px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-white text-xs font-mono placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all"
+              className="w-full px-3 py-2 text-xs font-mono font-bold tracking-wider bg-slate-950 border border-red-800/80 rounded-lg text-red-300 placeholder-slate-600 focus:outline-none focus:border-red-500 transition-colors uppercase"
             />
           </div>
 
-          {/* Footer Actions */}
+          {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
             <Button
               type="button"
@@ -213,6 +213,7 @@ export const DeactivateAccountModal: React.FC<DeactivateAccountModalProps> = ({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
