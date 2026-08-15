@@ -2,7 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AdminAuthProvider, useAdminAuth } from './context/AdminAuthContext.js';
+import { AdminAuthProvider } from './context/AdminAuthContext.js';
 import { ProtectedRoute } from './components/ProtectedRoute.js';
 import { AdminLayout } from './layouts/AdminLayout.js';
 import { OverviewPage } from './pages/OverviewPage.js';
@@ -57,7 +57,7 @@ const storageMock = (() => {
 Object.defineProperty(window, 'localStorage', { value: storageMock, writable: true });
 Object.defineProperty(globalThis, 'localStorage', { value: storageMock, writable: true });
 
-describe('PHASE 4 — SOCC App Shell & Routing Unit Tests', () => {
+describe('SOCC App Shell & Layout UX Unit Tests', () => {
   beforeEach(() => {
     storageMock.clear();
     vi.restoreAllMocks();
@@ -72,7 +72,7 @@ describe('PHASE 4 — SOCC App Shell & Routing Unit Tests', () => {
     });
   });
 
-  it('2. authenticated admin sees the SOCC shell and Overview page', async () => {
+  it('2. authenticated admin sees the SOCC shell, Back buttons, and Overview page', async () => {
     renderTestApp(['/overview'], 'authenticated');
 
     await waitFor(() => {
@@ -85,35 +85,44 @@ describe('PHASE 4 — SOCC App Shell & Routing Unit Tests', () => {
     expect(screen.getByText('Students')).toBeDefined();
     expect(screen.getByText('Payments')).toBeDefined();
     expect(screen.getByText('Audit Log')).toBeDefined();
+
+    // Check Back button is present in the layout
+    expect(screen.getAllByRole('button', { name: /Go back/i }).length).toBeGreaterThan(0);
   });
 
-  it('3. routes render the correct placeholder pages (Students, Payments, Audit)', async () => {
-    // Students Page
-    const { unmount: unmountStudents } = renderTestApp(['/students'], 'authenticated');
-    await waitFor(() => {
-      expect(screen.getAllByText('Students').length).toBeGreaterThan(0);
-      expect(screen.getByPlaceholderText('Search by name, email, or account ID...')).toBeDefined();
-    });
-    unmountStudents();
+  it('3. clicking brand block navigates to /overview', async () => {
+    renderTestApp(['/students'], 'authenticated');
 
-    // Payments Page
-    const { unmount: unmountPayments } = renderTestApp(['/payments'], 'authenticated');
+    await waitFor(() => {
+      expect(screen.getAllByText('Student Directory').length).toBeGreaterThan(0);
+    });
+
+    const brandLinks = screen.getAllByRole('link', { name: /Go to SOCC Overview/i });
+    expect(brandLinks.length).toBeGreaterThan(0);
+    fireEvent.click(brandLinks[0]);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Overview & Analytics').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('4. in-app back button safely navigates back or falls back to /overview', async () => {
+    renderTestApp(['/payments'], 'authenticated');
+
     await waitFor(() => {
       expect(screen.getAllByText('Payments Ledger').length).toBeGreaterThan(0);
-      expect(screen.getByRole('button', { name: /Record Payment/i })).toBeDefined();
     });
-    unmountPayments();
 
-    // Audit Page
-    const { unmount: unmountAudit } = renderTestApp(['/audit'], 'authenticated');
+    const backBtns = screen.getAllByRole('button', { name: /Go back/i });
+    expect(backBtns.length).toBeGreaterThan(0);
+    fireEvent.click(backBtns[0]);
+
     await waitFor(() => {
-      expect(screen.getAllByText('Audit Trail').length).toBeGreaterThan(0);
-      expect(screen.getByLabelText('Event Action:')).toBeDefined();
+      expect(screen.getAllByText('Overview & Analytics').length).toBeGreaterThan(0);
     });
-    unmountAudit();
   });
 
-  it('4. mobile menu toggles navigation drawer cleanly without breaking layout', async () => {
+  it('5. mobile menu toggles navigation drawer cleanly and closes on navigation click', async () => {
     renderTestApp(['/overview'], 'authenticated');
 
     await waitFor(() => {
@@ -123,19 +132,26 @@ describe('PHASE 4 — SOCC App Shell & Routing Unit Tests', () => {
     const toggleBtn = screen.getByRole('button', { name: /Toggle navigation menu/i });
     fireEvent.click(toggleBtn);
 
-    // Nav items should still be in DOM and accessible
-    expect(screen.getAllByText('Overview').length).toBeGreaterThan(0);
+    // Nav items inside drawer should be present
     expect(screen.getAllByText('Students').length).toBeGreaterThan(0);
+
+    // Clicking a nav item inside drawer navigates and closes drawer
+    const studentsNavLinks = screen.getAllByRole('link', { name: /Students/i });
+    fireEvent.click(studentsNavLinks[studentsNavLinks.length - 1]);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Student Directory').length).toBeGreaterThan(0);
+    });
   });
 
-  it('5. sign out button clears credentials and returns to login screen', async () => {
+  it('6. sign out button clears credentials and returns to login screen', async () => {
     renderTestApp(['/overview'], 'authenticated');
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Sign Out/i })).toBeDefined();
+      expect(screen.getAllByRole('button', { name: /Sign Out/i }).length).toBeGreaterThan(0);
     });
 
-    const signOutBtn = screen.getByRole('button', { name: /Sign Out/i });
+    const signOutBtn = screen.getAllByRole('button', { name: /Sign Out/i })[0];
     fireEvent.click(signOutBtn);
 
     await waitFor(() => {

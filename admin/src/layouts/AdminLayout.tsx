@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { NavLink, Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -10,6 +10,7 @@ import {
   X,
   Shield,
   Activity,
+  ArrowLeft,
 } from 'lucide-react';
 import { useAdminAuth } from '../context/AdminAuthContext.js';
 import { Badge } from '../components/ui/Badge.js';
@@ -19,6 +20,7 @@ export const AdminLayout: React.FC = () => {
   const { logout, adminProfile } = useAdminAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navItems = [
     { to: '/overview', label: 'Overview', icon: LayoutDashboard },
@@ -35,19 +37,44 @@ export const AdminLayout: React.FC = () => {
     return 'Command Center';
   };
 
+  const handleBack = () => {
+    if (window.history.length > 1 && location.key !== 'default') {
+      navigate(-1);
+    } else {
+      navigate('/overview');
+    }
+  };
+
   return (
     <div className="socc-layout-root">
       {/* 1. MOBILE TOPBAR (Visible only on < 1024px screens) */}
       <header className="socc-mobile-topbar">
-        <div className="socc-brand">
-          <div className="socc-brand-icon">
-            <Shield className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="socc-brand-title">Student OS</span>
-            <span className="socc-brand-badge">SOCC</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="socc-back-btn"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">Back</span>
+          </button>
+
+          <Link
+            to="/overview"
+            className="socc-brand"
+            aria-label="Go to SOCC Overview"
+          >
+            <div className="socc-brand-icon">
+              <Shield className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="socc-brand-title">Student OS</span>
+              <span className="socc-brand-badge">SOCC</span>
+            </div>
+          </Link>
         </div>
+
         <button
           type="button"
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -72,7 +99,12 @@ export const AdminLayout: React.FC = () => {
           >
             <div className="socc-sidebar-top">
               <div className="socc-sidebar-brand">
-                <div className="flex items-center gap-3">
+                <Link
+                  to="/overview"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-3 cursor-pointer"
+                  aria-label="Go to SOCC Overview"
+                >
                   <div className="socc-brand-icon-lg">
                     <Shield className="w-4.5 h-4.5" />
                   </div>
@@ -80,7 +112,7 @@ export const AdminLayout: React.FC = () => {
                     <h2 className="socc-brand-title-lg">Student OS</h2>
                     <p className="socc-brand-subtitle">Command Center</p>
                   </div>
-                </div>
+                </Link>
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(false)}
@@ -138,8 +170,12 @@ export const AdminLayout: React.FC = () => {
       {/* 3. DESKTOP PERSISTENT VERTICAL SIDEBAR (Visible on >= 1024px screens, 260px wide, sticky 100vh) */}
       <aside className="socc-desktop-sidebar">
         <div className="socc-sidebar-top">
-          {/* Desktop Branding Header */}
-          <div className="socc-sidebar-brand">
+          {/* Desktop Branding Header — Clickable to /overview */}
+          <Link
+            to="/overview"
+            className="socc-sidebar-brand"
+            aria-label="Go to SOCC Overview"
+          >
             <div className="flex items-center gap-3">
               <div className="socc-brand-icon-lg">
                 <Shield className="w-4.5 h-4.5" />
@@ -150,7 +186,7 @@ export const AdminLayout: React.FC = () => {
               </div>
             </div>
             <Badge variant="pro" size="sm">v1.0</Badge>
-          </div>
+          </Link>
 
           {/* Desktop Vertical Navigation Menu */}
           <nav className="socc-nav-list" aria-label="Primary Navigation">
@@ -197,9 +233,20 @@ export const AdminLayout: React.FC = () => {
 
       {/* 4. MAIN APPLICATION WORKSPACE (Beside the desktop sidebar, full available width) */}
       <div className="socc-main-wrapper">
-        {/* Desktop Sticky Header */}
+        {/* Desktop Sticky Header with Back Button */}
         <header className="socc-desktop-header">
-          <h2 className="socc-header-title">{getSectionTitle()}</h2>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="socc-back-btn"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back</span>
+            </button>
+            <h2 className="socc-header-title">{getSectionTitle()}</h2>
+          </div>
           <div className="socc-header-status">
             <Activity className="w-3.5 h-3.5 text-emerald-400" />
             <span>Production Control</span>

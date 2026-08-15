@@ -43,7 +43,11 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
   const [studentSearchQuery, setStudentSearchQuery] = useState<string>('');
   const [studentSearchResults, setStudentSearchResults] = useState<AdminUserSummaryDto[]>([]);
   const [searchingStudents, setSearchingStudents] = useState<boolean>(false);
+  const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
+  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
+
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autocompleteContainerRef = useRef<HTMLDivElement>(null);
 
   // Form states
   const [planId, setPlanId] = useState<'monthly' | 'yearly'>('monthly');
@@ -71,6 +75,8 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
       }
       setStudentSearchQuery('');
       setStudentSearchResults([]);
+      setIsDropdownOpen(false);
+      setHighlightedIndex(-1);
       setPlanId('monthly');
       setDiscountPercent(0);
       setPaymentMethod('upi');
@@ -82,6 +88,20 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
       setLoading(false);
     }
   }, [isOpen, initialAccountId, initialStudentName, initialStudentEmail]);
+
+  // Click outside listener to dismiss autocomplete dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        autocompleteContainerRef.current &&
+        !autocompleteContainerRef.current.contains(e.target as Node)
+      ) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Derived pricing calculations in paise
   const listPricePaise = planId === 'yearly' ? 249900 : 29900;
@@ -106,6 +126,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
   useEffect(() => {
     if (!isOpen || selectedStudent || !studentSearchQuery.trim()) {
       setStudentSearchResults([]);
+      setIsDropdownOpen(false);
       return;
     }
 
@@ -120,9 +141,13 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
           query: studentSearchQuery.trim(),
           limit: 5,
         });
-        setStudentSearchResults(res.data || []);
+        const results = res.data || [];
+        setStudentSearchResults(results);
+        setIsDropdownOpen(results.length > 0);
+        setHighlightedIndex(-1);
       } catch {
         setStudentSearchResults([]);
+        setIsDropdownOpen(false);
       } finally {
         setSearchingStudents(false);
       }
@@ -138,13 +163,45 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
   // Keyboard accessibility: ESC closes modal
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen && !loading) {
+      if (e.key === 'Escape' && isOpen && !loading && !isDropdownOpen) {
         onClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, loading, onClose]);
+  }, [isOpen, loading, isDropdownOpen, onClose]);
+
+  const selectStudent = (student: AdminUserSummaryDto) => {
+    setSelectedStudent({
+      accountId: student.accountId,
+      name: student.fullName || student.email,
+      email: student.email,
+    });
+    setStudentSearchQuery('');
+    setStudentSearchResults([]);
+    setIsDropdownOpen(false);
+    setHighlightedIndex(-1);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isDropdownOpen || studentSearchResults.length === 0) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev + 1) % studentSearchResults.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev - 1 + studentSearchResults.length) % studentSearchResults.length);
+    } else if (e.key === 'Enter') {
+      if (highlightedIndex >= 0 && highlightedIndex < studentSearchResults.length) {
+        e.preventDefault();
+        selectStudent(studentSearchResults[highlightedIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsDropdownOpen(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -300,49 +357,83 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
                 )}
               </div>
             ) : (
-              <div className="relative">
+              <div className="relative" ref={autocompleteContainerRef}>
                 <div className="relative">
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
+                    role="combobox"
+                    aria-expanded={isDropdownOpen}
+                    aria-autocomplete="list"
+                    aria-controls="student-autocomplete-list"
+                    autoComplete="off"
+                    autoCorrect="off"
+                    spellCheck={false}
                     disabled={loading}
                     value={studentSearchQuery}
-                    onChange={(e) => setStudentSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                      setStudentSearchQuery(e.target.value);
+                      setIsDropdownOpen(true);
+                    }}
+                    onFocus={() => {
+                      if (studentSearchResults.length > 0) setIsDropdownOpen(true);
+                    }}
+                    onKeyDown={handleSearchKeyDown}
                     placeholder="Search by student name or email..."
                     className="w-full pl-9 pr-4 py-2 bg-slate-950 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
 
                 {searchingStudents && (
-                  <div className="text-xs text-slate-500 py-2 px-3">Searching students...</div>
+                  <div className="text-xs text-slate-400 py-2 px-3 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 animate-ping" />
+                    Searching students...
+                  </div>
                 )}
 
-                {studentSearchResults.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-slate-950 border border-slate-800 rounded-lg shadow-xl z-20 overflow-hidden divide-y divide-slate-800/60 max-h-48 overflow-y-auto">
-                    {studentSearchResults.map((student) => (
-                      <button
-                        key={student.accountId}
-                        type="button"
-                        onClick={() => {
-                          setSelectedStudent({
-                            accountId: student.accountId,
-                            name: student.fullName || student.email,
-                            email: student.email,
-                          });
-                          setStudentSearchQuery('');
-                          setStudentSearchResults([]);
-                        }}
-                        className="w-full p-2.5 text-left hover:bg-slate-800/80 transition-colors flex items-center justify-between text-xs"
-                      >
-                        <div>
-                          <div className="font-semibold text-white">{student.fullName || student.email}</div>
-                          <div className="text-[11px] text-slate-400 font-mono">{student.email}</div>
+                {isDropdownOpen && studentSearchResults.length > 0 && (
+                  <div
+                    id="student-autocomplete-list"
+                    role="listbox"
+                    className="socc-autocomplete-menu"
+                    style={{
+                      backgroundColor: '#0f172a',
+                      borderColor: '#334155',
+                      zIndex: 60,
+                    }}
+                  >
+                    {studentSearchResults.map((student, index) => {
+                      const isHighlighted = highlightedIndex === index;
+                      return (
+                        <div
+                          key={student.accountId}
+                          role="option"
+                          aria-selected={isHighlighted}
+                          onMouseEnter={() => setHighlightedIndex(index)}
+                          onClick={() => selectStudent(student)}
+                          className={`socc-autocomplete-item ${isHighlighted ? 'active' : ''}`}
+                          style={{
+                            backgroundColor: isHighlighted ? '#1e293b' : '#0f172a',
+                            color: '#f8fafc',
+                          }}
+                        >
+                          <div>
+                            <div className="socc-autocomplete-name">
+                              {student.fullName || student.email}
+                            </div>
+                            <div className="socc-autocomplete-email">
+                              {student.email}
+                            </div>
+                          </div>
+                          <Badge
+                            variant={student.isPaid ? 'pro' : student.currentPlanId === 'free_trial' ? 'trial' : 'neutral'}
+                            size="sm"
+                          >
+                            {student.currentPlanId ? student.currentPlanId.toUpperCase() : 'NO PLAN'}
+                          </Badge>
                         </div>
-                        <Badge variant="neutral" size="sm">
-                          {student.currentPlanId}
-                        </Badge>
-                      </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

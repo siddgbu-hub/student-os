@@ -280,4 +280,103 @@ describe('RecordPaymentModal Component Tests', () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it('9. custom autocomplete searches students and allows keyboard and click selection', async () => {
+    const mockUsers = [
+      {
+        accountId: 'acc-456',
+        email: 'priya@example.com',
+        fullName: 'Priya Sharma',
+        currentPlanId: 'free_trial',
+        entitlementStatus: 'active',
+        isPaid: false,
+        daysRemaining: 7,
+        deviceCount: 2,
+        createdAt: '2026-08-10T00:00:00.000Z',
+      },
+    ];
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        success: true,
+        data: mockUsers,
+      }),
+    });
+
+    render(
+      <RecordPaymentModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />
+    );
+
+    const searchInput = screen.getByPlaceholderText(/Search by student name or email/i);
+    fireEvent.change(searchInput, { target: { value: 'Priya' } });
+
+    // Wait for autocomplete dropdown results
+    await waitFor(() => {
+      expect(screen.getByText('Priya Sharma')).toBeDefined();
+      expect(screen.getByText('priya@example.com')).toBeDefined();
+    });
+
+    // Arrow down highlights the item, Enter selects it
+    fireEvent.keyDown(searchInput, { key: 'ArrowDown' });
+    fireEvent.keyDown(searchInput, { key: 'Enter' });
+
+    // Selected student card is now rendered
+    await waitFor(() => {
+      expect(screen.getByText('Change')).toBeDefined();
+    });
+  });
+
+  it('10. custom autocomplete dropdown dismisses on Escape key', async () => {
+    const mockUsers = [
+      {
+        accountId: 'acc-789',
+        email: 'aman@example.com',
+        fullName: 'Aman Verma',
+        currentPlanId: 'yearly',
+        entitlementStatus: 'active',
+        isPaid: true,
+        daysRemaining: 200,
+        deviceCount: 1,
+        createdAt: '2026-08-10T00:00:00.000Z',
+      },
+    ];
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        success: true,
+        data: mockUsers,
+      }),
+    });
+
+    render(
+      <RecordPaymentModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+      />
+    );
+
+    const searchInput = screen.getByPlaceholderText(/Search by student name or email/i);
+    fireEvent.change(searchInput, { target: { value: 'Aman' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('Aman Verma')).toBeDefined();
+    });
+
+    // Press Escape on the search input to close the dropdown
+    fireEvent.keyDown(searchInput, { key: 'Escape' });
+
+    // Dropdown list should be dismissed
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).toBeNull();
+    });
+  });
 });
