@@ -71,6 +71,22 @@ export const OverviewPage: React.FC = () => {
     ? metrics.activeProMonthly + metrics.activeProYearly
     : 0;
 
+  /** Navigate to Students with a pre-applied filter via router state. */
+  const goStudents = (filter?: string) =>
+    navigate('/students', { state: filter ? { filter } : undefined });
+
+  /** Shared classes for interactive KPI cards — look like cards, feel clickable. */
+  const kpiCardBase =
+    'bg-slate-900 border-slate-800 shadow-sm cursor-pointer ' +
+    'hover:border-blue-500/40 hover:bg-slate-800/60 ' +
+    'transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
+
+  /** Shared classes for subscription distribution sub-cards. */
+  const distCardBase =
+    'p-3.5 bg-slate-950/80 border border-slate-800/80 rounded-lg cursor-pointer ' +
+    'hover:border-blue-500/40 hover:bg-slate-800/40 ' +
+    'transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
+
   return (
     <div>
       <PageHeader
@@ -103,9 +119,17 @@ export const OverviewPage: React.FC = () => {
       ) : metrics ? (
         <div className="space-y-6">
           {/* SECTION 1: PRIMARY OPERATIONAL KPI METRICS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {/* 1. Total Students */}
-            <Card className="bg-slate-900 border-slate-800 shadow-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4" role="list">
+
+            {/* 1. Total Students → /students (all) */}
+            <Card
+              role="listitem"
+              tabIndex={0}
+              aria-label={`Total Students: ${metrics.totalStudents.toLocaleString('en-IN')}. Click to view all students.`}
+              className={kpiCardBase}
+              onClick={() => goStudents()}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && goStudents()}
+            >
               <CardHeader className="flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs uppercase text-slate-400 font-semibold tracking-wider">
                   Total Students
@@ -118,12 +142,22 @@ export const OverviewPage: React.FC = () => {
                 <div className="text-2xl font-bold text-white font-mono">
                   {metrics.totalStudents.toLocaleString('en-IN')}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">Registered student accounts</p>
+                <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                  Registered student accounts
+                  <ArrowRight className="w-3 h-3 ml-0.5 opacity-50" />
+                </p>
               </CardContent>
             </Card>
 
-            {/* 2. Active Pro Subscribers */}
-            <Card className="bg-slate-900 border-slate-800 shadow-sm">
+            {/* 2. Active Pro → /students?filter=pro_active */}
+            <Card
+              role="listitem"
+              tabIndex={0}
+              aria-label={`Active Pro: ${totalProSubscribers.toLocaleString('en-IN')}. Click to view active Pro subscribers.`}
+              className={kpiCardBase}
+              onClick={() => goStudents('pro_active')}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && goStudents('pro_active')}
+            >
               <CardHeader className="flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs uppercase text-slate-400 font-semibold tracking-wider">
                   Active Pro
@@ -136,14 +170,22 @@ export const OverviewPage: React.FC = () => {
                 <div className="text-2xl font-bold text-amber-400 font-mono">
                   {totalProSubscribers.toLocaleString('en-IN')}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
                   {metrics.activeProMonthly} Monthly • {metrics.activeProYearly} Yearly
+                  <ArrowRight className="w-3 h-3 ml-0.5 opacity-50" />
                 </p>
               </CardContent>
             </Card>
 
-            {/* 3. Active Trials */}
-            <Card className="bg-slate-900 border-slate-800 shadow-sm">
+            {/* 3. Active Trials → /students?filter=trial_active */}
+            <Card
+              role="listitem"
+              tabIndex={0}
+              aria-label={`Active Trials: ${metrics.activeTrials.toLocaleString('en-IN')}. Click to view active trial users.`}
+              className={kpiCardBase}
+              onClick={() => goStudents('trial_active')}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && goStudents('trial_active')}
+            >
               <CardHeader className="flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs uppercase text-slate-400 font-semibold tracking-wider">
                   Active Trials
@@ -156,12 +198,22 @@ export const OverviewPage: React.FC = () => {
                 <div className="text-2xl font-bold text-purple-400 font-mono">
                   {metrics.activeTrials.toLocaleString('en-IN')}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">Active free trial users</p>
+                <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                  Active free trial users
+                  <ArrowRight className="w-3 h-3 ml-0.5 opacity-50" />
+                </p>
               </CardContent>
             </Card>
 
-            {/* 4. Upcoming Renewals (7 Days) */}
-            <Card className="bg-slate-900 border-slate-800 shadow-sm">
+            {/* 4. Expiring (7D) → /students?filter=expiring_soon */}
+            <Card
+              role="listitem"
+              tabIndex={0}
+              aria-label={`Expiring in 7 days: ${metrics.expiringNext7Days.toLocaleString('en-IN')}. Click to view student directory.`}
+              className={kpiCardBase}
+              onClick={() => goStudents()}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && goStudents()}
+            >
               <CardHeader className="flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs uppercase text-slate-400 font-semibold tracking-wider">
                   Expiring (7d)
@@ -174,12 +226,22 @@ export const OverviewPage: React.FC = () => {
                 <div className="text-2xl font-bold text-rose-400 font-mono">
                   {metrics.expiringNext7Days.toLocaleString('en-IN')}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">Renewal horizon</p>
+                <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                  Renewal horizon
+                  <ArrowRight className="w-3 h-3 ml-0.5 opacity-50" />
+                </p>
               </CardContent>
             </Card>
 
-            {/* 5. Captured Revenue */}
-            <Card className="bg-slate-900 border-slate-800 shadow-sm">
+            {/* 5. Captured Revenue → /payments */}
+            <Card
+              role="listitem"
+              tabIndex={0}
+              aria-label={`Captured Revenue: ${formatCurrency(metrics.totalRevenuePaise)}. Click to view payments ledger.`}
+              className={kpiCardBase}
+              onClick={() => navigate('/payments')}
+              onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/payments')}
+            >
               <CardHeader className="flex-row items-center justify-between pb-2">
                 <CardTitle className="text-xs uppercase text-slate-400 font-semibold tracking-wider">
                   Captured Revenue
@@ -192,7 +254,10 @@ export const OverviewPage: React.FC = () => {
                 <div className="text-2xl font-bold text-emerald-400 font-mono">
                   {formatCurrency(metrics.totalRevenuePaise)}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">All-time ledger total</p>
+                <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                  All-time ledger total
+                  <ArrowRight className="w-3 h-3 ml-0.5 opacity-50" />
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -212,37 +277,69 @@ export const OverviewPage: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3.5 bg-slate-950/80 border border-slate-800/80 rounded-lg">
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Monthly Pro</span>
-                  <span className="text-lg font-bold text-white font-mono mt-0.5 block">
+                {/* Monthly Pro */}
+                <button
+                  type="button"
+                  className={distCardBase}
+                  onClick={() => goStudents('pro_active')}
+                  aria-label="View active monthly Pro subscribers"
+                >
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block text-left">Monthly Pro</span>
+                  <span className="text-lg font-bold text-white font-mono mt-0.5 block text-left">
                     {metrics.activeProMonthly}
                   </span>
-                  <span className="text-[11px] text-slate-400 mt-0.5 block">₹299 plan tier</span>
-                </div>
+                  <span className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                    ₹299 plan tier <ArrowRight className="w-2.5 h-2.5 opacity-40" />
+                  </span>
+                </button>
 
-                <div className="p-3.5 bg-slate-950/80 border border-slate-800/80 rounded-lg">
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Yearly Pro</span>
-                  <span className="text-lg font-bold text-white font-mono mt-0.5 block">
+                {/* Yearly Pro */}
+                <button
+                  type="button"
+                  className={distCardBase}
+                  onClick={() => goStudents('pro_active')}
+                  aria-label="View active yearly Pro subscribers"
+                >
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block text-left">Yearly Pro</span>
+                  <span className="text-lg font-bold text-white font-mono mt-0.5 block text-left">
                     {metrics.activeProYearly}
                   </span>
-                  <span className="text-[11px] text-slate-400 mt-0.5 block">₹2,499 annual tier</span>
-                </div>
+                  <span className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                    ₹2,499 annual tier <ArrowRight className="w-2.5 h-2.5 opacity-40" />
+                  </span>
+                </button>
 
-                <div className="p-3.5 bg-slate-950/80 border border-slate-800/80 rounded-lg">
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Active Trials</span>
-                  <span className="text-lg font-bold text-purple-400 font-mono mt-0.5 block">
+                {/* Active Trials */}
+                <button
+                  type="button"
+                  className={distCardBase}
+                  onClick={() => goStudents('trial_active')}
+                  aria-label="View active trial users"
+                >
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block text-left">Active Trials</span>
+                  <span className="text-lg font-bold text-purple-400 font-mono mt-0.5 block text-left">
                     {metrics.activeTrials}
                   </span>
-                  <span className="text-[11px] text-slate-400 mt-0.5 block">Free trial users</span>
-                </div>
+                  <span className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                    Free trial users <ArrowRight className="w-2.5 h-2.5 opacity-40" />
+                  </span>
+                </button>
 
-                <div className="p-3.5 bg-slate-950/80 border border-slate-800/80 rounded-lg">
-                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Expired / Inactive</span>
-                  <span className="text-lg font-bold text-slate-300 font-mono mt-0.5 block">
+                {/* Expired / Inactive */}
+                <button
+                  type="button"
+                  className={distCardBase}
+                  onClick={() => goStudents('expired')}
+                  aria-label="View expired or inactive accounts"
+                >
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block text-left">Expired / Inactive</span>
+                  <span className="text-lg font-bold text-slate-300 font-mono mt-0.5 block text-left">
                     {metrics.expiredAccounts}
                   </span>
-                  <span className="text-[11px] text-slate-400 mt-0.5 block">Expired accounts</span>
-                </div>
+                  <span className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                    Expired accounts <ArrowRight className="w-2.5 h-2.5 opacity-40" />
+                  </span>
+                </button>
               </div>
             </div>
 
@@ -287,7 +384,8 @@ export const OverviewPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate('/students')}
-                className="p-4 bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 rounded-xl text-left transition-colors flex items-center justify-between group cursor-pointer"
+                aria-label="Navigate to Student Directory"
+                className="p-4 bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 hover:border-blue-500/40 rounded-xl text-left transition-all duration-150 flex items-center justify-between group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               >
                 <div>
                   <div className="font-semibold text-white text-sm flex items-center gap-2">
@@ -298,13 +396,14 @@ export const OverviewPage: React.FC = () => {
                     Search students, inspect plans, and grant or extend subscriptions.
                   </p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors ml-3 flex-shrink-0" />
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white group-hover:translate-x-0.5 transition-all duration-150 ml-3 flex-shrink-0" />
               </button>
 
               <button
                 type="button"
                 onClick={() => navigate('/payments')}
-                className="p-4 bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 rounded-xl text-left transition-colors flex items-center justify-between group cursor-pointer"
+                aria-label="Navigate to Payments Ledger"
+                className="p-4 bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 hover:border-emerald-500/40 rounded-xl text-left transition-all duration-150 flex items-center justify-between group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               >
                 <div>
                   <div className="font-semibold text-white text-sm flex items-center gap-2">
@@ -315,13 +414,14 @@ export const OverviewPage: React.FC = () => {
                     View transactions and record offline UPI, cash, or bank transfers.
                   </p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors ml-3 flex-shrink-0" />
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white group-hover:translate-x-0.5 transition-all duration-150 ml-3 flex-shrink-0" />
               </button>
 
               <button
                 type="button"
                 onClick={() => navigate('/audit')}
-                className="p-4 bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 rounded-xl text-left transition-colors flex items-center justify-between group cursor-pointer"
+                aria-label="Navigate to Audit Trail"
+                className="p-4 bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 hover:border-indigo-500/40 rounded-xl text-left transition-all duration-150 flex items-center justify-between group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
               >
                 <div>
                   <div className="font-semibold text-white text-sm flex items-center gap-2">
@@ -332,7 +432,7 @@ export const OverviewPage: React.FC = () => {
                     Inspect immutable administrative logs and operator provenance.
                   </p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors ml-3 flex-shrink-0" />
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white group-hover:translate-x-0.5 transition-all duration-150 ml-3 flex-shrink-0" />
               </button>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Search,
   Users,
@@ -29,9 +30,12 @@ export const StudentsPage: React.FC = () => {
     totalPages: 1,
   });
 
+  const location = useLocation();
+  const initialFilter = (location.state as { filter?: TabStatus } | null)?.filter ?? 'all';
+
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [debouncedQuery, setDebouncedQuery] = useState<string>('');
-  const [selectedStatus, setSelectedStatus] = useState<TabStatus>('all');
+  const [selectedStatus, setSelectedStatus] = useState<TabStatus>(initialFilter);
   const [page, setPage] = useState<number>(1);
 
   const [loading, setLoading] = useState<boolean>(true);
