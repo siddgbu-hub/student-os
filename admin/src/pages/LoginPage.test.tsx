@@ -350,4 +350,18 @@ describe('SOCC LoginPage — Email OTP Authentication Flow Tests', () => {
     // Still on Step 2
     expect(screen.getByLabelText(/6-Digit Verification Code/i)).toBeDefined();
   });
+
+  it('10. redirects to /overview when authenticated', () => {
+    render(
+      <AdminAuthProvider initialStatus="authenticated" initialToken="mock-token">
+        <MemoryRouter initialEntries={['/login']}>
+          <LoginPage />
+        </MemoryRouter>
+      </AdminAuthProvider>
+    );
+
+    // When authenticated, LoginPage returns Navigate to /overview, so the login form is not rendered
+    expect(screen.queryByLabelText(/Owner \/ Admin Email Address/i)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Send Verification Code/i })).toBeNull();
+  });
 });

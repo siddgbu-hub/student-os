@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Shield, Mail, KeyRound, AlertCircle, ArrowLeft, RefreshCw, CheckCircle2 } from 'lucide-react';
 import { useAdminAuth } from '../context/AdminAuthContext.js';
 import { Button } from '../components/ui/Button.js';
 
 export const LoginPage: React.FC = () => {
-  const { sendOtp, loginWithOtp, error: authError } = useAdminAuth();
+  const { status, sendOtp, loginWithOtp, error: authError } = useAdminAuth();
+  const navigate = useNavigate();
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
@@ -20,6 +22,11 @@ export const LoginPage: React.FC = () => {
     }
     return () => clearTimeout(timer);
   }, [countdown]);
+
+  // If already authenticated, redirect to SOCC dashboard
+  if (status === 'authenticated') {
+    return <Navigate to="/overview" replace />;
+  }
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,8 +81,8 @@ export const LoginPage: React.FC = () => {
     const success = await loginWithOtp(email.trim().toLowerCase(), cleanOtp);
     setLoading(false);
 
-    if (!success) {
-      // Auth context sets specific 403 / 401 error message
+    if (success) {
+      navigate('/overview', { replace: true });
     }
   };
 
