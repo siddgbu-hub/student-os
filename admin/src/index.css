@@ -47,6 +47,331 @@ body {
 }
 
 /* ============================================================
+   SOCC APPLICATION SHELL (2-COLUMN PERSISTENT DESKTOP LAYOUT)
+   ============================================================ */
+.socc-layout-root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+  background-color: var(--socc-bg-app);
+  color: var(--socc-text-main);
+}
+
+@media (min-width: 1024px) {
+  .socc-layout-root {
+    flex-direction: row;
+  }
+}
+
+/* --- Mobile Topbar (< 1024px) --- */
+.socc-mobile-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background-color: var(--socc-bg-sidebar);
+  border-bottom: 1px solid var(--socc-border);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+@media (min-width: 1024px) {
+  .socc-mobile-topbar {
+    display: none !important;
+  }
+}
+
+.socc-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.socc-brand-icon {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  background-color: #2563eb;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.socc-brand-title {
+  font-weight: 700;
+  font-size: 0.875rem;
+  color: #ffffff;
+}
+
+.socc-brand-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #60a5fa;
+  margin-left: 0.375rem;
+}
+
+.socc-mobile-menu-btn {
+  padding: 0.5rem;
+  color: #94a3b8;
+  border-radius: 0.375rem;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 150ms ease;
+}
+
+.socc-mobile-menu-btn:hover {
+  color: #ffffff;
+  background-color: #1e293b;
+}
+
+/* --- Mobile Drawer Overlay (< 1024px) --- */
+.socc-mobile-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 50;
+  display: flex;
+}
+
+@media (min-width: 1024px) {
+  .socc-mobile-drawer-backdrop {
+    display: none !important;
+  }
+}
+
+.socc-mobile-drawer {
+  width: 280px;
+  max-width: 85vw;
+  height: 100%;
+  background-color: var(--socc-bg-sidebar);
+  border-right: 1px solid var(--socc-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow-y: auto;
+  animation: slideInLeft 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+/* --- Desktop Persistent Left Sidebar (>= 1024px) --- */
+.socc-desktop-sidebar {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .socc-desktop-sidebar {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 260px;
+    min-width: 260px;
+    max-width: 260px;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    left: 0;
+    background-color: var(--socc-bg-sidebar);
+    border-right: 1px solid var(--socc-border);
+    z-index: 30;
+    flex-shrink: 0;
+    overflow-y: auto;
+  }
+}
+
+.socc-sidebar-top {
+  display: flex;
+  flex-direction: column;
+}
+
+.socc-sidebar-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--socc-border);
+}
+
+.socc-brand-icon-lg {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+  background-color: #2563eb;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 8px rgba(30, 58, 138, 0.3);
+}
+
+.socc-brand-title-lg {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.socc-brand-subtitle {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #94a3b8;
+}
+
+/* Navigation list & items */
+.socc-nav-list {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.socc-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #94a3b8;
+  text-decoration: none;
+  border: 1px solid transparent;
+  transition: all 150ms ease;
+}
+
+.socc-nav-item:hover {
+  color: #f1f5f9;
+  background-color: rgba(30, 41, 59, 0.6);
+}
+
+.socc-nav-item.active {
+  color: #60a5fa;
+  background-color: rgba(37, 99, 235, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+  font-weight: 600;
+}
+
+.socc-nav-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+/* Sidebar Footer */
+.socc-sidebar-footer {
+  padding: 1rem;
+  border-top: 1px solid var(--socc-border);
+  background-color: rgba(15, 23, 42, 0.8);
+}
+
+.socc-session-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.socc-live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.socc-live-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background-color: #10b981;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.socc-live-text {
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  font-weight: 500;
+}
+
+/* --- Main Content Workspace (Right Column) --- */
+.socc-main-wrapper {
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background-color: var(--socc-bg-app);
+}
+
+.socc-desktop-header {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .socc-desktop-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid rgba(30, 41, 59, 0.8);
+    background-color: rgba(9, 13, 22, 0.6);
+    backdrop-filter: blur(4px);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+}
+
+.socc-header-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: -0.025em;
+}
+
+.socc-header-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 9999px;
+  background-color: #0f172a;
+  border: 1px solid #1e293b;
+  font-size: 0.75rem;
+  color: #cbd5e1;
+}
+
+.socc-main-content {
+  flex: 1 1 0%;
+  padding: 1rem;
+  max-width: 80rem;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (min-width: 640px) {
+  .socc-main-content {
+    padding: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .socc-main-content {
+    padding: 2rem;
+  }
+}
+
+/* ============================================================
    LAYOUT & FLEX UTILITIES
    ============================================================ */
 .min-h-screen  { min-height: 100vh; }
@@ -112,9 +437,13 @@ body {
 .pb-2    { padding-bottom: 0.5rem; }
 .pb-3    { padding-bottom: 0.75rem; }
 .pb-6    { padding-bottom: 1.5rem; }
+.pt-1    { padding-top: 0.25rem; }
 .pt-2    { padding-top: 0.5rem; }
 .pt-3    { padding-top: 0.75rem; }
+.pl-9    { padding-left: 2.25rem; }
 .pl-10   { padding-left: 2.5rem; }
+.pr-3    { padding-right: 0.75rem; }
+.pr-4    { padding-right: 1rem; }
 
 /* Margin */
 .mb-0\.5 { margin-bottom: 0.125rem; }
@@ -130,8 +459,10 @@ body {
 .mt-1\.5 { margin-top: 0.375rem; }
 .mt-2    { margin-top: 0.5rem; }
 .mt-6    { margin-top: 1.5rem; }
+.my-8    { margin-top: 2rem; margin-bottom: 2rem; }
 .ml-1    { margin-left: 0.25rem; }
 .ml-1\.5 { margin-left: 0.375rem; }
+.ml-3    { margin-left: 0.75rem; }
 .ml-auto { margin-left: auto; }
 .mr-1    { margin-right: 0.25rem; }
 .mr-1\.5 { margin-right: 0.375rem; }
@@ -154,8 +485,11 @@ body {
 .max-w-sm  { max-width: 24rem; }
 .max-w-md  { max-width: 28rem; }
 .max-w-lg  { max-width: 32rem; }
+.max-w-xl  { max-width: 36rem; }
 .max-w-2xl { max-width: 42rem; }
 .max-w-7xl { max-width: 80rem; }
+.max-h-40  { max-height: 10rem; }
+.max-h-48  { max-height: 12rem; }
 
 /* ============================================================
    GRID
@@ -163,39 +497,41 @@ body {
 .grid       { display: grid; }
 .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
 .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 
 @media (min-width: 640px) {
-  .sm\\:flex-row           { flex-direction: row; }
-  .sm\\:items-center       { align-items: center; }
-  .sm\\:grid-cols-2        { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .sm\\:grid-cols-4        { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .sm\\:text-right         { text-align: right; }
-  .sm\\:p-6                { padding: 1.5rem; }
+  .sm\:flex-row           { flex-direction: row; }
+  .sm\:items-center       { align-items: center; }
+  .sm\:grid-cols-2        { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sm\:grid-cols-4        { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .sm\:grid-cols-5        { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .sm\:text-right         { text-align: right; }
+  .sm\:p-6                { padding: 1.5rem; }
 }
 
 @media (min-width: 768px) {
-  .md\\:grid-cols-2  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .md\\:grid-cols-3  { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .md\\:flex-row     { flex-direction: row; }
-  .md\\:items-center { align-items: center; }
-  .md\\:w-64         { width: 16rem; }
-  .md\\:block        { display: block; }
-  .md\\:flex         { display: flex; }
-  .md\\:hidden       { display: none !important; }
-  .md\\:p-8          { padding: 2rem; }
+  .md\:grid-cols-2  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .md\:grid-cols-3  { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .md\:flex-row     { flex-direction: row; }
+  .md\:items-center { align-items: center; }
+  .md\:w-64         { width: 16rem; }
+  .md\:block        { display: block; }
+  .md\:flex         { display: flex; }
+  .md\:hidden       { display: none !important; }
+  .md\:p-8          { padding: 2rem; }
 }
 
 @media (min-width: 1024px) {
-  .lg\\:grid-cols-3  { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .lg\\:grid-cols-4  { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .lg\\:grid-cols-5  { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-  .lg\\:col-span-2   { grid-column: span 2 / span 2; }
+  .lg\:grid-cols-3  { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .lg\:grid-cols-4  { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .lg\:grid-cols-5  { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .lg\:col-span-2   { grid-column: span 2 / span 2; }
 }
 
 /* ============================================================
    BACKGROUNDS & BORDERS
    ============================================================ */
-/* Slate background palette — ALL shades used by SOCC components */
+/* Slate background palette */
 .bg-slate-950   { background-color: #020617; }
 .bg-slate-900   { background-color: #0f172a; }
 .bg-slate-800   { background-color: #1e293b; }
@@ -217,7 +553,6 @@ body {
 .bg-slate-800\/60 { background-color: rgba(30, 41, 59, 0.60); }
 .bg-slate-800\/50 { background-color: rgba(30, 41, 59, 0.50); }
 .bg-slate-800\/40 { background-color: rgba(30, 41, 59, 0.40); }
-.bg-slate-800    { background-color: #1e293b; }
 
 /* Coloured state backgrounds */
 .bg-blue-600\/15     { background-color: rgba(37, 99, 235, 0.15); }
@@ -227,10 +562,12 @@ body {
 .bg-amber-600\/15    { background-color: rgba(217, 119, 6, 0.15); }
 .bg-amber-500\/10    { background-color: rgba(245, 158, 11, 0.10); }
 .bg-amber-950\/30    { background-color: rgba(69, 26, 3, 0.30); }
+.bg-amber-950\/40    { background-color: rgba(69, 26, 3, 0.40); }
 .bg-amber-950\/50    { background-color: rgba(69, 26, 3, 0.50); }
 .bg-purple-600\/15   { background-color: rgba(147, 51, 234, 0.15); }
 .bg-purple-500\/10   { background-color: rgba(168, 85, 247, 0.10); }
 .bg-rose-600\/15     { background-color: rgba(225, 29, 72, 0.15); }
+.bg-rose-600\/20     { background-color: rgba(225, 29, 72, 0.20); }
 .bg-rose-950\/20     { background-color: rgba(76, 5, 25, 0.20); }
 .bg-rose-950\/30     { background-color: rgba(76, 5, 25, 0.30); }
 .bg-rose-950\/40     { background-color: rgba(76, 5, 25, 0.40); }
@@ -262,12 +599,14 @@ body {
 .border-slate-800\/80  { border-color: rgba(30, 41, 59, 0.80); }
 .border-slate-900\/60  { border-color: rgba(15, 23, 42, 0.60); }
 
+.border-blue-500       { border-color: #3b82f6; }
 .border-blue-500\/30   { border-color: rgba(59, 130, 246, 0.30); }
 .border-blue-800\/80   { border-color: rgba(30, 64, 175, 0.80); }
 .border-amber-500\/40  { border-color: rgba(245, 158, 11, 0.40); }
 .border-amber-800\/50  { border-color: rgba(146, 64, 14, 0.50); }
 .border-amber-800\/60  { border-color: rgba(146, 64, 14, 0.60); }
 .border-amber-800\/80  { border-color: rgba(146, 64, 14, 0.80); }
+.border-emerald-500    { border-color: #10b981; }
 .border-emerald-500\/30 { border-color: rgba(16, 185, 129, 0.30); }
 .border-emerald-800\/60 { border-color: rgba(6, 95, 70, 0.60); }
 .border-emerald-800\/80 { border-color: rgba(6, 95, 70, 0.80); }
@@ -287,6 +626,7 @@ body {
 .rounded-md    { border-radius: 0.375rem; }
 .rounded-lg    { border-radius: 0.5rem; }
 .rounded-xl    { border-radius: 0.75rem; }
+.rounded-2xl   { border-radius: 1rem; }
 .rounded-full  { border-radius: 9999px; }
 
 /* ============================================================
@@ -320,7 +660,7 @@ body {
 .leading-relaxed { line-height: 1.625; }
 .line-through    { text-decoration: line-through; }
 
-/* ---- Text Colors — complete SOCC palette ---- */
+/* ---- Text Colors ---- */
 .text-white       { color: #ffffff; }
 .text-slate-100   { color: #f1f5f9; }
 .text-slate-200   { color: #e2e8f0; }
@@ -352,11 +692,13 @@ body {
 
 /* ============================================================
    INTERACTIVE STATES — Hover / Focus / Disabled
-   All hover: and focus: pseudo-class utilities for SOCC
    ============================================================ */
 
 /* Hover: backgrounds */
+.hover\:bg-slate-800\/80:hover { background-color: rgba(30, 41, 59, 0.80); }
 .hover\:bg-slate-800\/60:hover { background-color: rgba(30, 41, 59, 0.60); }
+.hover\:bg-slate-800\/50:hover { background-color: rgba(30, 41, 59, 0.50); }
+.hover\:bg-slate-800\/40:hover { background-color: rgba(30, 41, 59, 0.40); }
 .hover\:bg-slate-800:hover     { background-color: #1e293b; }
 .hover\:bg-slate-700:hover     { background-color: #334155; }
 .hover\:bg-slate-600:hover     { background-color: #475569; }
@@ -367,8 +709,8 @@ body {
 /* Hover: text colors */
 .hover\:text-white:hover        { color: #ffffff; }
 .hover\:text-slate-200:hover    { color: #e2e8f0; }
+.hover\:text-slate-300:hover    { color: #cbd5e1; }
 .hover\:text-blue-300:hover     { color: #93c5fd; }
-.hover\:text-blue-300\hover     { color: #93c5fd; }
 .hover\:text-rose-400:hover     { color: #f87171; }
 .hover\:text-emerald-200:hover  { color: #a7f3d0; }
 
@@ -389,7 +731,7 @@ body {
 .disabled\:opacity-50:disabled { opacity: 0.5; }
 .disabled\:cursor-not-allowed:disabled { cursor: not-allowed; }
 
-/* Group hover utilities (used by navigation shortcut cards) */
+/* Group hover utilities */
 .group:hover .group-hover\:text-white { color: #ffffff; }
 
 /* Transition */
@@ -406,9 +748,11 @@ body {
 .sticky          { position: sticky; }
 .inset-0         { top: 0; right: 0; bottom: 0; left: 0; }
 .top-0           { top: 0; }
+.top-full        { top: 100%; }
 .right-0         { right: 0; }
 .bottom-0        { bottom: 0; }
 .left-0          { left: 0; }
+.left-3          { left: 0.75rem; }
 .left-3\.5       { left: 0.875rem; }
 .top-1\/2        { top: 50%; }
 .-translate-y-1\/2 { transform: translateY(-50%); }
@@ -582,15 +926,18 @@ select option {
 }
 
 /* ============================================================
-   MISC SHARED UTILITIES
+   DIVIDERS
    ============================================================ */
-.max-w-sm { max-width: 24rem; }
-.col-span-2 { grid-column: span 2 / span 2; }
+.divide-y > * + * {
+  border-top-width: 1px;
+  border-top-style: solid;
+}
+.divide-slate-800\/60 > * + * {
+  border-top-color: rgba(30, 41, 59, 0.60);
+}
 
 /* ============================================================
    SOCC BUTTON HELPER CLASSES
-   Critical bg/text/border colors are set via inline styles in
-   Button.tsx. These classes handle sizing and interactive states.
    ============================================================ */
 .socc-btn {
   display: inline-flex;
@@ -622,4 +969,3 @@ select option {
 .socc-btn-danger:hover:not(:disabled)    { background-color: #be123c !important; }
 .socc-btn-ghost:hover:not(:disabled)     { background-color: #1e293b !important; color: #ffffff !important; }
 .socc-btn-outline:hover:not(:disabled)   { background-color: #1e293b !important; }
-
