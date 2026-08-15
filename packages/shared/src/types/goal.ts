@@ -1,5 +1,5 @@
 export type GoalStatus = 'active' | 'completed' | 'archived';
-export type GoalBadgeStatus = 'ON_TRACK' | 'BEHIND' | 'AHEAD';
+export type GoalBadgeStatus = 'NOT_STARTED' | 'ON_TRACK' | 'AT_RISK' | 'BEHIND' | 'COMPLETED' | 'AHEAD';
 
 export interface ExamGoalDTO {
   id: string;

@@ -34,6 +34,14 @@ export interface RawPreferencesRecord {
   time_zone: string;
   show_completed_blocks: number;
   break_reminder_interval_minutes: number;
+  notifications_enabled?: number;
+  planner_reminders_enabled?: number;
+  revision_reminders_enabled?: number;
+  quiet_hours_enabled?: number;
+  quiet_hours_start?: string;
+  quiet_hours_end?: string;
+  reminder_lead_time_minutes?: number;
+  show_private_details_in_notifications?: number;
   updated_at: string;
 }
 
@@ -143,7 +151,10 @@ export class AccountRepository {
     const res = await this.db
       .prepare(
         `SELECT account_id, theme, date_format, time_format, first_day_of_week, time_zone,
-                show_completed_blocks, break_reminder_interval_minutes, updated_at
+                show_completed_blocks, break_reminder_interval_minutes,
+                notifications_enabled, planner_reminders_enabled, revision_reminders_enabled,
+                quiet_hours_enabled, quiet_hours_start, quiet_hours_end,
+                reminder_lead_time_minutes, show_private_details_in_notifications, updated_at
          FROM user_preferences WHERE account_id = ?`
       )
       .bind(accountId)
@@ -160,6 +171,14 @@ export class AccountRepository {
       timeZone: res.time_zone,
       showCompletedBlocks: Boolean(res.show_completed_blocks),
       breakReminderIntervalMinutes: res.break_reminder_interval_minutes,
+      notificationsEnabled: res.notifications_enabled !== undefined ? Boolean(res.notifications_enabled) : true,
+      plannerRemindersEnabled: res.planner_reminders_enabled !== undefined ? Boolean(res.planner_reminders_enabled) : true,
+      revisionRemindersEnabled: res.revision_reminders_enabled !== undefined ? Boolean(res.revision_reminders_enabled) : true,
+      quietHoursEnabled: res.quiet_hours_enabled !== undefined ? Boolean(res.quiet_hours_enabled) : false,
+      quietHoursStart: res.quiet_hours_start || '22:00',
+      quietHoursEnd: res.quiet_hours_end || '07:00',
+      reminderLeadTimeMinutes: res.reminder_lead_time_minutes !== undefined ? res.reminder_lead_time_minutes : 15,
+      showPrivateDetailsInNotifications: res.show_private_details_in_notifications !== undefined ? Boolean(res.show_private_details_in_notifications) : false,
       updatedAt: res.updated_at,
     };
   }
@@ -176,12 +195,24 @@ export class AccountRepository {
     const show_completed = input.showCompletedBlocks !== undefined ? (input.showCompletedBlocks ? 1 : 0) : existing?.showCompletedBlocks ? 1 : 1;
     const break_interval = input.breakReminderIntervalMinutes ?? existing?.breakReminderIntervalMinutes ?? 50;
 
+    const notif_enabled = input.notificationsEnabled !== undefined ? (input.notificationsEnabled ? 1 : 0) : existing?.notificationsEnabled ? 1 : 1;
+    const planner_notif = input.plannerRemindersEnabled !== undefined ? (input.plannerRemindersEnabled ? 1 : 0) : existing?.plannerRemindersEnabled ? 1 : 1;
+    const rev_notif = input.revisionRemindersEnabled !== undefined ? (input.revisionRemindersEnabled ? 1 : 0) : existing?.revisionRemindersEnabled ? 1 : 1;
+    const quiet_enabled = input.quietHoursEnabled !== undefined ? (input.quietHoursEnabled ? 1 : 0) : existing?.quietHoursEnabled ? 1 : 0;
+    const quiet_start = input.quietHoursStart ?? existing?.quietHoursStart ?? '22:00';
+    const quiet_end = input.quietHoursEnd ?? existing?.quietHoursEnd ?? '07:00';
+    const lead_time = input.reminderLeadTimeMinutes ?? existing?.reminderLeadTimeMinutes ?? 15;
+    const show_private = input.showPrivateDetailsInNotifications !== undefined ? (input.showPrivateDetailsInNotifications ? 1 : 0) : existing?.showPrivateDetailsInNotifications ? 1 : 0;
+
     await this.db
       .prepare(
         `INSERT INTO user_preferences (
           account_id, theme, date_format, time_format, first_day_of_week, time_zone,
-          show_completed_blocks, break_reminder_interval_minutes, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          show_completed_blocks, break_reminder_interval_minutes,
+          notifications_enabled, planner_reminders_enabled, revision_reminders_enabled,
+          quiet_hours_enabled, quiet_hours_start, quiet_hours_end,
+          reminder_lead_time_minutes, show_private_details_in_notifications, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(account_id) DO UPDATE SET
           theme = excluded.theme,
           date_format = excluded.date_format,
@@ -190,9 +221,20 @@ export class AccountRepository {
           time_zone = excluded.time_zone,
           show_completed_blocks = excluded.show_completed_blocks,
           break_reminder_interval_minutes = excluded.break_reminder_interval_minutes,
+          notifications_enabled = excluded.notifications_enabled,
+          planner_reminders_enabled = excluded.planner_reminders_enabled,
+          revision_reminders_enabled = excluded.revision_reminders_enabled,
+          quiet_hours_enabled = excluded.quiet_hours_enabled,
+          quiet_hours_start = excluded.quiet_hours_start,
+          quiet_hours_end = excluded.quiet_hours_end,
+          reminder_lead_time_minutes = excluded.reminder_lead_time_minutes,
+          show_private_details_in_notifications = excluded.show_private_details_in_notifications,
           updated_at = excluded.updated_at`
       )
-      .bind(accountId, theme, date_format, time_format, first_day, time_zone, show_completed, break_interval, now)
+      .bind(
+        accountId, theme, date_format, time_format, first_day, time_zone, show_completed, break_interval,
+        notif_enabled, planner_notif, rev_notif, quiet_enabled, quiet_start, quiet_end, lead_time, show_private, now
+      )
       .run();
 
     return (await this.getPreferencesByAccountId(accountId))!;

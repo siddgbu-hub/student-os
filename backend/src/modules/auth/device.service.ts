@@ -4,8 +4,8 @@ export class DeviceService {
   constructor(private repo: AuthRepository) {}
 
   /**
-   * Enforces One Device Per Account policy.
-   * Invalidates existing device registration and registers the new device as active.
+   * Enforces One Active Android Device per Account policy,
+   * while allowing independent Web sessions to coexist simultaneously.
    */
   async registerDevice(
     accountId: string,
@@ -15,11 +15,29 @@ export class DeviceService {
     now: Date = new Date()
   ): Promise<void> {
     const timestamp = now.toISOString();
+    const isAndroid =
+      (deviceId.startsWith('android-native-') || deviceId.startsWith('android-')) &&
+      deviceModel !== 'Web Browser' &&
+      !deviceId.startsWith('web-') &&
+      !deviceId.startsWith('dev-mobile-');
 
-    // Revoke previous active devices for this account
-    await this.repo.revokeDevicesForAccount(accountId, timestamp);
+    if (isAndroid) {
+      // 1. Find currently active Android devices for this account
+      const activeAndroidDevices = await this.repo.findActiveAndroidDevicesForAccount(accountId);
+      // 2. Revoke sessions for other active Android devices
+      for (const d of activeAndroidDevices) {
+        if (d.device_id !== deviceId) {
+          await this.repo.revokeSessionsForDevice(d.device_id, timestamp);
+        }
+      }
+      // 3. Revoke all active Android devices for this account
+      await this.repo.revokeAndroidDevicesForAccount(accountId, timestamp);
+    }
 
-    // Register or reactivate the target device
+    // Revoke any previous stale sessions for the current deviceId (both Android & Web)
+    await this.repo.revokeSessionsForDevice(deviceId, timestamp);
+
+    // Register or reactivate the current device
     await this.repo.upsertDevice(deviceId, accountId, deviceModel || null, osVersion || null, timestamp);
 
     // Audit log

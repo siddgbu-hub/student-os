@@ -23,7 +23,13 @@ export const StartRevisionSessionSchema = z.object({
   revisionItemId: z.string().uuid('Invalid revision item ID'),
 });
 
+export const EndRevisionSessionSchema = z.object({
+  rating: z.enum(['again', 'hard', 'good', 'easy']).default('good'),
+  notes: z.string().max(1000, 'Notes too long').optional().nullable(),
+});
+
 export type CreateRevisionItemInput = z.infer<typeof CreateRevisionItemSchema>;
 export type UpdateRevisionItemInput = z.infer<typeof UpdateRevisionItemSchema>;
 export type RescheduleRevisionItemInput = z.infer<typeof RescheduleRevisionItemSchema>;
 export type StartRevisionSessionInput = z.infer<typeof StartRevisionSessionSchema>;
+export type EndRevisionSessionInput = z.infer<typeof EndRevisionSessionSchema>;

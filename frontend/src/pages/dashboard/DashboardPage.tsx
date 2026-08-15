@@ -22,8 +22,10 @@ import { useAnalytics } from '../../context/AnalyticsContext.js';
 import { useGoal } from '../../context/GoalContext.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { Button } from '@student-os/ui';
-import { DailyPlanSummaryDTO, GoalBadgeStatus } from '@student-os/shared';
+import { DailyPlanSummaryDTO, GoalBadgeStatus, PlanDto, EntitlementDto, PaymentConfigDto } from '@student-os/shared';
 import { API_BASE_URL } from '@/config/api';
+import { EntitlementService } from '../../services/entitlementService.js';
+import { UpgradeModal } from '../../components/entitlement/UpgradeModal.js';
 
 // ─── Navigation type ──────────────────────────────────────────────────────────
 type NavModule = 'dashboard' | 'study' | 'planner' | 'revision' | 'analytics' | 'account';
@@ -72,9 +74,11 @@ function smartTime(iso: string | null | undefined): string {
 }
 
 function badgeCfg(badge: GoalBadgeStatus | undefined): { label: string; bg: string; border: string; text: string } {
-  if (badge === 'AHEAD')   return { label: '🚀 AHEAD',    bg: 'rgba(34,197,94,0.12)',  border: '#86efac', text: '#15803d' };
-  if (badge === 'BEHIND')  return { label: '⚠️ BEHIND',   bg: 'rgba(239,68,68,0.12)',  border: '#fca5a5', text: '#dc2626' };
-  return                          { label: '✓ ON TRACK', bg: 'rgba(37,99,235,0.12)',  border: '#93c5fd', text: '#1d4ed8' };
+  if (badge === 'COMPLETED')   return { label: 'COMPLETED',   bg: 'rgba(34,197,94,0.12)',  border: '#86efac', text: '#15803d' };
+  if (badge === 'ON_TRACK' || badge === 'AHEAD') return { label: 'ON TRACK',    bg: 'rgba(37,99,235,0.12)',  border: '#93c5fd', text: '#1d4ed8' };
+  if (badge === 'AT_RISK')     return { label: 'AT RISK',     bg: 'rgba(245,158,11,0.12)', border: '#fcd34d', text: '#b45309' };
+  if (badge === 'BEHIND')      return { label: 'BEHIND',      bg: 'rgba(239,68,68,0.12)',  border: '#fca5a5', text: '#dc2626' };
+  return                              { label: 'NOT STARTED', bg: 'rgba(107,114,128,0.12)', border: '#cbd5e1', text: '#475569' };
 }
 
 // ─── Design Tokens & CSS Helpers ──────────────────────────────────────────────
@@ -1151,12 +1155,25 @@ export interface DashboardPageProps {
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   const { profile } = useAccount();
-  const { token, deviceId } = useAuth();
+  const { token, deviceId, account } = useAuth();
   const { todaySummary } = useStudy();
   const { todaySummary: plannerToday, isLoading: plannerLoading } = usePlanner();
   const { summary: revSummary } = useRevision();
 
   const displayName = profile?.fullName || 'Student';
+  const accountEmail = account?.email || 'sidd.gbu@gmail.com';
+
+  // Entitlement & Plans
+  const [entitlement, setEntitlement] = useState<EntitlementDto | null>(null);
+  const [plans, setPlans] = useState<PlanDto[]>([]);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfigDto | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    EntitlementService.getEntitlement().then(setEntitlement);
+    EntitlementService.getPlans().then(setPlans);
+    EntitlementService.getPaymentConfig().then(setPaymentConfig);
+  }, []);
 
   // Yesterday plan — local fetch
   const [yesterdayPlan, setYesterdayPlan] = useState<DailyPlanSummaryDTO | null>(null);
@@ -1188,7 +1205,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
       {/* 1. Hero Section */}
       <HeroSection displayName={displayName} onNavigate={onNavigate} />
 
-      {/* 2. Today's Progress Stats */}
+      {/* 2. 7-Day Trial Status & Live Countdown Card */}
+      <TrialCountdownBanner
+        entitlement={entitlement}
+        onUpgrade={() => setShowUpgradeModal(true)}
+      />
+
+      {/* 3. Today's Progress Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px' }}>
         <CompactStat icon="⏱" label="Focus Time"  value={fmtMins(studyMins)}  sub={`${studySessions} session${studySessions !== 1 ? 's' : ''}`} accent={studyMins >= 60} accentColor="#2563eb" />
         <CompactStat icon="🔁" label="Rev. Time"   value={fmtMins(revMins)}    sub="revision" accentColor="#7c3aed" />
@@ -1196,7 +1219,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
         <CompactStat icon="📊" label="Planner"     value={plannerLoading ? '…' : `${plannerPct}%`} sub="accuracy" accent={plannerPct >= 75} accentColor="#10b981" />
       </div>
 
-      {/* 3. Goal Card */}
+      {/* 4. Goal Card */}
       <GoalDetailCard onNavigate={onNavigate} />
 
       {/* 4. Planner & Revisions Grid */}
@@ -1245,6 +1268,174 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
       {/* 7. Session Banner */}
       <SessionBanner onNavigate={onNavigate} />
+
+      {/* 8. Upgrade Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        plans={plans}
+        contactWhatsApp={paymentConfig?.contactWhatsApp}
+        accountEmail={accountEmail}
+        entitlement={entitlement}
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </div>
   );
 };
+
+// ─── Trial Countdown Banner ───────────────────────────────────────────────────
+
+function formatRemainingTime(expiresAtIso?: string | null): string {
+  if (!expiresAtIso) return 'Active';
+  try {
+    const diff = new Date(expiresAtIso).getTime() - Date.now();
+    if (diff <= 0) return 'Expired';
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    const minutes = Math.floor((diff / (1000 * 60)) % 60);
+    if (days > 1) return `${days} days left`;
+    if (days === 1) return `1 day, ${hours} hrs left`;
+    if (hours > 0) return `${hours} hrs, ${minutes} mins left`;
+    return `${minutes} mins left`;
+  } catch {
+    return 'Active';
+  }
+}
+
+function formatProExpiryText(expiresAtIso?: string | null): string {
+  if (!expiresAtIso) return 'Pro access active';
+  try {
+    const diff = new Date(expiresAtIso).getTime() - Date.now();
+    if (diff <= 0) return 'Pro access ended';
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+    if (days > 30) return 'Pro access active';
+    if (days >= 7) return `Pro access · ${days} days left`;
+    if (days >= 1) return `Pro access · ${days} ${days === 1 ? 'day' : 'days'} left`;
+    if (hours > 0) return 'Pro access · ends today';
+    return 'Pro access · ends today';
+  } catch {
+    return 'Pro access active';
+  }
+}
+
+const TrialCountdownBanner: React.FC<{
+  entitlement: EntitlementDto | null;
+  onUpgrade: () => void;
+}> = ({ entitlement, onUpgrade }) => {
+  const isPaid = entitlement?.isPaid === true;
+  const isExpired = entitlement?.status === 'expired';
+  const isActivePaid = isPaid && !isExpired; // status === 'active' && isPaid
+  const remainingTime = formatRemainingTime(entitlement?.expiresAt);
+
+  // ACTIVE PAID PRO: No dashboard card. Premium identity is shown via the
+  // top-bar avatar golden ring. Account page has the detailed subscription info.
+  if (isActivePaid) {
+    return null;
+  }
+
+  if (isExpired) {
+    // Only mark as "Pro Ended" if the expired user actually had a paid plan
+    const isPaidExpired = (entitlement?.isPaid === true) || entitlement?.currentPlanId === 'monthly' || entitlement?.currentPlanId === 'yearly';
+    const expiredTitle = isPaidExpired ? 'Student OS Pro Ended' : '7-Day Free Trial Ended';
+    const expiredSubtitle = isPaidExpired
+      ? 'Your study data is safely preserved. Renew to continue full access.'
+      : 'Upgrade to continue using Student OS. Your notes & study data are safely saved.';
+
+    return (
+      <div
+        style={{
+          ...BASE_CARD,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          backgroundColor: 'rgba(239, 68, 68, 0.08)',
+          borderColor: 'rgba(239, 68, 68, 0.3)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '1.25rem' }}>⏳</span>
+          <div>
+            <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#dc2626' }}>
+              {expiredTitle}
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>
+              {expiredSubtitle}
+            </div>
+          </div>
+        </div>
+        <Button
+          type="button"
+          onClick={onUpgrade}
+          style={{
+            backgroundColor: '#dc2626',
+            color: '#ffffff',
+            border: 'none',
+            fontSize: '0.75rem',
+            fontWeight: '700',
+            height: '30px',
+            padding: '0 14px',
+          }}
+        >
+          Upgrade
+        </Button>
+      </div>
+    );
+  }
+
+  // ACTIVE FREE TRIAL
+  return (
+    <div
+      style={{
+        ...BASE_CARD,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: 'var(--color-bg-secondary)',
+        border: '1px solid rgba(37, 99, 235, 0.35)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <span style={{ fontSize: '1.25rem' }}>⏱</span>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: '700', color: 'var(--color-text-primary)' }}>
+              7-Day Free Trial
+            </span>
+            <span
+              style={{
+                fontSize: '0.7rem',
+                fontWeight: '700',
+                backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                color: 'var(--color-accent)',
+                padding: '2px 6px',
+                borderRadius: '4px',
+              }}
+            >
+              {remainingTime}
+            </span>
+          </div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)' }}>
+            Enjoy full access to Student OS
+          </div>
+        </div>
+      </div>
+      <Button
+        type="button"
+        onClick={onUpgrade}
+        style={{
+          backgroundColor: 'var(--color-accent)',
+          color: '#ffffff',
+          border: 'none',
+          fontSize: '0.75rem',
+          fontWeight: '700',
+          height: '30px',
+          padding: '0 14px',
+        }}
+      >
+        Upgrade
+      </Button>
+    </div>
+  );
+};
+
+

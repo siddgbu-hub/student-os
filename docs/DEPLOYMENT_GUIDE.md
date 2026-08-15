@@ -32,10 +32,26 @@ Student OS is architected as a lightweight, high-performance web application pow
 ```
 
 ### Production Secrets
-Bind `JWT_SECRET` via Wrangler CLI:
+Bind `JWT_SECRET` and `BREVO_API_KEY` via Wrangler CLI:
 ```bash
-npx wrangler secret put JWT_SECRET --name student-os-api
+npx wrangler secret put JWT_SECRET --name student-os-backend
+npx wrangler secret put BREVO_API_KEY --name student-os-backend
 ```
+
+### Email OTP Delivery Configuration (Brevo)
+The backend uses Brevo's HTTPS REST API for production email OTP delivery.
+- **Worker Secret**: `BREVO_API_KEY` (configured in Cloudflare Workers environment)
+- **Sender Config (`wrangler.jsonc`)**:
+  - `BREVO_FROM_EMAIL`: Verified sender address (e.g. `studentos.apk@gmail.com`)
+  - `BREVO_FROM_NAME`: Sender display name (`Student OS`)
+
+### Google OAuth Sign-In Configuration
+The web application uses Google Identity Services (GSI) Credential Callback flow.
+- **Google OAuth Web Client ID**: Configured in `frontend/.env` (`VITE_GOOGLE_CLIENT_ID`) and `backend/wrangler.jsonc` (`GOOGLE_CLIENT_ID`).
+- **Authorized JavaScript Origins**:
+  - Development: `http://localhost:5175`, `http://localhost:5176`
+  - Production: `https://5185278c.student-os-19f.pages.dev`
+- **Authorized Redirect URIs**: None required (GSI client-side credential callback flow).
 
 ---
 

@@ -3,6 +3,7 @@ import { AuthRepository } from '../../db/auth.repository.js';
 import { AuthService } from './auth.service.js';
 import { SessionService } from './session.service.js';
 import { DeviceService } from './device.service.js';
+import { BrevoEmailService } from '../../services/email.service.js';
 import { createAuthMiddleware } from '../../middleware/auth.js';
 import { SendOtpSchema, VerifyOtpSchema, GoogleAuthSchema, AUTH_ERRORS } from '@student-os/shared';
 import type { Env } from '../../index.js';
@@ -25,7 +26,12 @@ authRouter.post('/email/send-otp', async (c) => {
   }
 
   const repo = new AuthRepository(c.env.DB);
-  const authService = new AuthService(repo);
+  const emailService = new BrevoEmailService(
+    c.env.BREVO_API_KEY,
+    c.env.BREVO_FROM_EMAIL,
+    c.env.BREVO_FROM_NAME
+  );
+  const authService = new AuthService(repo, emailService);
 
   try {
     const result = await authService.sendOtp(parseResult.data.email);
@@ -47,6 +53,19 @@ authRouter.post('/email/send-otp', async (c) => {
           timestamp: new Date().toISOString(),
         },
         429
+      );
+    }
+    if (errorMessage === AUTH_ERRORS.EMAIL_DELIVERY_FAILED) {
+      return c.json(
+        {
+          success: false,
+          error: {
+            code: AUTH_ERRORS.EMAIL_DELIVERY_FAILED,
+            message: 'Failed to deliver verification code email. Please try again.',
+          },
+          timestamp: new Date().toISOString(),
+        },
+        500
       );
     }
     return c.json(
@@ -143,7 +162,7 @@ authRouter.post('/google', async (c) => {
   const sessionService = new SessionService(repo);
 
   try {
-    const account = await authService.authenticateGoogle(parseResult.data.idToken);
+    const account = await authService.authenticateGoogle(parseResult.data.idToken, c.env.GOOGLE_CLIENT_ID);
 
     // Register device (enforces 1-device policy)
     await deviceService.registerDevice(
@@ -172,11 +191,21 @@ authRouter.post('/google', async (c) => {
       timestamp: new Date().toISOString(),
     });
   } catch (err: unknown) {
-    const errorMessage = err instanceof Error ? err.message : 'AUTH_INVALID_GOOGLE_TOKEN';
+    const rawError = err instanceof Error ? err.message : AUTH_ERRORS.INVALID_GOOGLE_TOKEN;
+    console.error('[GoogleAuthController] Auth processing failure:', err instanceof Error ? err.stack || err.message : String(err));
+    const errorCode =
+      rawError === AUTH_ERRORS.GOOGLE_EMAIL_NOT_VERIFIED
+        ? AUTH_ERRORS.GOOGLE_EMAIL_NOT_VERIFIED
+        : AUTH_ERRORS.INVALID_GOOGLE_TOKEN;
+    const message =
+      rawError === AUTH_ERRORS.GOOGLE_EMAIL_NOT_VERIFIED
+        ? 'Google email is not verified'
+        : 'Google authentication failed. Invalid or expired token.';
+
     return c.json(
       {
         success: false,
-        error: { code: errorMessage, message: 'Google authentication failed' },
+        error: { code: errorCode, message },
         timestamp: new Date().toISOString(),
       },
       400

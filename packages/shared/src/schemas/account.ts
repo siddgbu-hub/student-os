@@ -23,6 +23,16 @@ export const UpdatePreferencesSchema = z.object({
   timeZone: z.string().max(50).optional(),
   showCompletedBlocks: z.boolean().optional(),
   breakReminderIntervalMinutes: z.number().min(10).max(180).optional(),
+  notificationsEnabled: z.boolean().optional(),
+  plannerRemindersEnabled: z.boolean().optional(),
+  revisionRemindersEnabled: z.boolean().optional(),
+  quietHoursEnabled: z.boolean().optional(),
+  quietHoursStart: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid HH:mm time format').optional(),
+  quietHoursEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Invalid HH:mm time format').optional(),
+  reminderLeadTimeMinutes: z.number().refine((val) => [0, 5, 10, 15, 30].includes(val), {
+    message: 'Lead time must be 0, 5, 10, 15, or 30 minutes',
+  }).optional(),
+  showPrivateDetailsInNotifications: z.boolean().optional(),
 });
 
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;

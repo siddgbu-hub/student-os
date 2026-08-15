@@ -1,12 +1,18 @@
 import { AuthRepository } from '../../db/auth.repository.js';
 import { generateNumericOtp, hashString } from '../../services/crypto.service.js';
+import { EmailService } from '../../services/email.service.js';
+import { GoogleJwksService } from '../../services/google-jwks.service.js';
 import { OTP_CONFIG, AUTH_ERRORS } from '@student-os/shared';
 
 export class AuthService {
-  constructor(private repo: AuthRepository) {}
+  constructor(
+    private repo: AuthRepository,
+    private emailService?: EmailService,
+    private googleJwksService: GoogleJwksService = new GoogleJwksService()
+  ) {}
 
   /**
-   * Generates and stores a hashed verification request for Email OTP.
+   * Generates and stores a hashed verification request for Email OTP, and delivers it via EmailService.
    */
   async sendOtp(email: string, now: Date = new Date()): Promise<{ success: boolean; message: string }> {
     const timestamp = now.toISOString();
@@ -32,8 +38,18 @@ export class AuthService {
     // Store in generic verification_requests table (never plain text)
     await this.repo.createVerificationRequest(id, email, 'email_otp', tokenHash, expiresAt, timestamp);
 
-    // Log OTP in development environment for verification testing
-    console.log(`[DEV ONLY] OTP generated for ${email}: ${otp}`);
+    // Deliver OTP via EmailService
+    if (this.emailService) {
+      try {
+        await this.emailService.sendOtpEmail(email, otp);
+      } catch (err: unknown) {
+        // If email delivery fails, invalidate stored OTP to prevent redemption of undelivered code
+        await this.repo.invalidatePendingOtps(email, 'email_otp', timestamp);
+        const safeReason = err instanceof Error ? err.message : 'Unknown email error';
+        console.error(`[AuthService] OTP email delivery failed for recipient: ${safeReason}`);
+        throw new Error(AUTH_ERRORS.EMAIL_DELIVERY_FAILED);
+      }
+    }
 
     // Audit log
     await this.repo.logAuditEvent(
@@ -87,46 +103,50 @@ export class AuthService {
   }
 
   /**
-   * Verifies Google ID token and resolves user account.
-   * Same email always resolves to the SAME account.
+   * Cryptographically verifies Google ID token and resolves/links user account safely.
    */
-  async authenticateGoogle(idToken: string, now: Date = new Date()): Promise<{ accountId: string; email: string }> {
+  async authenticateGoogle(
+    idToken: string,
+    expectedClientId?: string,
+    now: Date = new Date()
+  ): Promise<{ accountId: string; email: string }> {
     const timestamp = now.toISOString();
-    
-    // In V1 Cloudflare Workers environment: Verify Google ID token structure / email payload
-    // If testing or mock token, extract email payload safely or parse payload
-    let email: string;
-    try {
-      // Edge Google JWT payload parser
-      const parts = idToken.split('.');
-      if (parts.length === 3) {
-        const payloadJson = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
-        const payload = JSON.parse(payloadJson);
-        email = payload.email;
+
+    // 1. Cryptographically verify Google ID Token (signature, iss, aud, exp, sub, email, email_verified)
+    const verifiedPayload = await this.googleJwksService.verifyIdToken(idToken, expectedClientId);
+    const { sub, email, name } = verifiedPayload;
+
+    // 2. Safe Identity Lookup: Check if Google identity (provider='google', provider_subject=sub) already exists
+    let account = await this.repo.findAccountByIdentity('google', sub);
+
+    if (account) {
+      // Existing Google-linked account found
+      await this.repo.updateAccountLastLogin(account.account_id, timestamp);
+    } else {
+      // Identity not linked yet. Check if account with verified email already exists
+      const existingAccount = await this.repo.findAccountByEmail(email);
+
+      if (existingAccount) {
+        // Safe Account Linking: Link existing verified email account to Google identity
+        account = existingAccount;
+        await this.repo.createAccountIdentity(crypto.randomUUID(), account.account_id, 'google', sub, timestamp);
+        await this.repo.updateAccountLastLogin(account.account_id, timestamp);
       } else {
-        email = idToken; // Fallback mock token for local test suites
+        // New user: Create new account and link Google identity
+        const accountId = crypto.randomUUID();
+        account = await this.repo.createAccount(accountId, email, timestamp);
+        await this.repo.createAccountIdentity(crypto.randomUUID(), account.account_id, 'google', sub, timestamp);
       }
-      if (!email || !email.includes('@')) {
-        throw new Error('AUTH_INVALID_GOOGLE_TOKEN');
-      }
-    } catch {
-      throw new Error('AUTH_INVALID_GOOGLE_TOKEN');
     }
 
-    // Unified Account Resolution: Find existing account by email or create new
-    let account = await this.repo.findAccountByEmail(email);
-    if (!account) {
-      const accountId = crypto.randomUUID();
-      account = await this.repo.createAccount(accountId, email, timestamp);
-    } else {
-      await this.repo.updateAccountLastLogin(account.account_id, timestamp);
-    }
+    // 3. Ensure User Profile: Initialize or update user_profiles with Google name if profile is missing/default
+    await this.repo.ensureUserProfile(account.account_id, name, timestamp);
 
     await this.repo.logAuditEvent(
       crypto.randomUUID(),
       account.account_id,
       'GOOGLE_AUTH',
-      JSON.stringify({ email }),
+      JSON.stringify({ email: account.email, sub }),
       timestamp
     );
 

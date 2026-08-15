@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext.js';
-import { StudyProvider } from './context/StudyContext.js';
+import { StudyProvider, useStudy } from './context/StudyContext.js';
 import { PlannerProvider } from './context/PlannerContext.js';
 import { RevisionProvider } from './context/RevisionContext.js';
-import { AnalyticsProvider } from './context/AnalyticsContext.js';
+import { AnalyticsProvider, useAnalytics } from './context/AnalyticsContext.js';
 import { AccountProvider, useAccount } from './context/AccountContext.js';
-import { ToastProvider } from './context/ToastContext.js';
-import { GoalProvider } from './context/GoalContext.js';
+import { ToastProvider, useToast } from './context/ToastContext.js';
+import { GoalProvider, useGoal } from './context/GoalContext.js';
 import { ProtectedRoute } from './router/ProtectedRoute.js';
 import { DashboardPage } from './pages/dashboard/DashboardPage.js';
 import { StudyPage } from './pages/study/StudyPage.js';
@@ -15,12 +15,52 @@ import { RevisionPage } from './pages/revision/RevisionPage.js';
 import { AnalyticsPage } from './pages/analytics/AnalyticsPage.js';
 import { AccountPage } from './pages/account/AccountPage.js';
 import { Button } from '@student-os/ui';
+import { EntitlementDto } from '@student-os/shared';
+import { EntitlementService } from './services/entitlementService.js';
 
 const WorkspaceShell: React.FC = () => {
-  const { account, logout } = useAuth();
-  const { profile } = useAccount();
+  const { account, logout, token } = useAuth();
+  const { profile, refreshAccount } = useAccount();
+  const { refreshGoal } = useGoal();
+  const { refreshTodaySessions } = useStudy();
+  const { refreshAnalytics } = useAnalytics();
+  const { showToast } = useToast();
   const [activeModule, setActiveModule] = useState<'dashboard' | 'study' | 'planner' | 'revision' | 'analytics' | 'account'>('dashboard');
+  const [entitlement, setEntitlement] = useState<EntitlementDto | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
+  useEffect(() => {
+    if (!token || !account?.accountId) {
+      setEntitlement(null);
+      return;
+    }
+    EntitlementService.getEntitlement().then(setEntitlement).catch(() => setEntitlement(null));
+  }, [token, account?.accountId]);
+
+  const handleRefresh = async () => {
+    if (isRefreshing || !token) return;
+    setIsRefreshing(true);
+    try {
+      const [entitlementRes] = await Promise.allSettled([
+        EntitlementService.getEntitlement(),
+        refreshAccount(),
+        refreshGoal?.(),
+        refreshTodaySessions?.(),
+        refreshAnalytics?.(),
+      ]);
+
+      if (entitlementRes.status === 'fulfilled' && entitlementRes.value) {
+        setEntitlement(entitlementRes.value);
+      }
+      showToast('Updated just now', 'success');
+    } catch {
+      showToast("Couldn't refresh. Check your connection and try again.", 'error');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  const isPaidActive = entitlement?.status === 'active' && entitlement?.isPaid === true;
   const displayName = profile?.fullName || 'Student';
   const initial = displayName.charAt(0).toUpperCase();
 
@@ -79,10 +119,10 @@ const WorkspaceShell: React.FC = () => {
               </h1>
             </div>
 
-            {/* Centered / Natural Module Navigation */}
+            {/* Centered / Natural Module Navigation (Desktop) */}
             <nav
+              className="desktop-nav-container"
               style={{
-                display: 'flex',
                 gap: '4px',
                 backgroundColor: 'var(--color-bg-primary)',
                 border: '1px solid var(--color-border)',
@@ -93,7 +133,7 @@ const WorkspaceShell: React.FC = () => {
             >
               {[
                 { id: 'dashboard', label: 'Dashboard' },
-                { id: 'study', label: 'Study Engine' },
+                { id: 'study', label: 'Study' },
                 { id: 'planner', label: 'Planner' },
                 { id: 'revision', label: 'Revision' },
                 { id: 'analytics', label: 'Analytics' },
@@ -127,40 +167,104 @@ const WorkspaceShell: React.FC = () => {
           </div>
 
           {/* User Profile & Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+            {/* In-App Refresh Action */}
+            <button
+              type="button"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              title="Refresh"
+              aria-label="Refresh"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '30px',
+                height: '30px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--color-bg-primary)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-secondary)',
+                cursor: isRefreshing ? 'not-allowed' : 'pointer',
+                transition: 'all 0.18s ease',
+              }}
+            >
+              <span
+                style={{
+                  display: 'inline-block',
+                  fontSize: '0.85rem',
+                  lineHeight: 1,
+                  animation: isRefreshing ? 'spin 0.8s linear infinite' : 'none',
+                }}
+              >
+                🔄
+              </span>
+            </button>
+
             {account?.email && (
               <button
                 type="button"
                 onClick={() => setActiveModule('account')}
-                title={account.email}
+                title={isPaidActive ? `${account.email} • Student OS Pro Active` : account.email}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
                   padding: '2px 8px 2px 3px',
                   borderRadius: '16px',
-                  backgroundColor: 'var(--color-bg-primary)',
-                  border: '1px solid var(--color-border)',
+                  backgroundColor: isPaidActive ? 'rgba(15, 23, 42, 0.6)' : 'var(--color-bg-primary)',
+                  border: isPaidActive ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--color-border)',
                   cursor: 'pointer',
+                  boxShadow: isPaidActive ? '0 0 8px rgba(245, 158, 11, 0.15)' : 'none',
+                  transition: 'all 0.18s ease',
                 }}
               >
                 <div
                   style={{
-                    width: '22px',
-                    height: '22px',
+                    position: 'relative',
+                    width: '24px',
+                    height: '24px',
                     borderRadius: '50%',
-                    backgroundColor: 'var(--color-accent)',
-                    color: '#ffffff',
+                    background: isPaidActive
+                      ? 'linear-gradient(135deg, #ffd700, #f59e0b)'
+                      : 'var(--color-accent)',
+                    padding: isPaidActive ? '1.5px' : '0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontWeight: '600',
-                    fontSize: '0.72rem',
                   }}
                 >
-                  {initial}
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      borderRadius: '50%',
+                      backgroundColor: isPaidActive ? '#0f172a' : 'var(--color-accent)',
+                      color: isPaidActive ? '#ffd700' : '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: isPaidActive ? '800' : '600',
+                      fontSize: '0.72rem',
+                    }}
+                  >
+                    {initial}
+                  </div>
+                  {isPaidActive && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        bottom: '-3px',
+                        right: '-3px',
+                        fontSize: '9px',
+                        lineHeight: 1,
+                      }}
+                    >
+                      ⭐
+                    </span>
+                  )}
                 </div>
-                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-secondary)', fontWeight: '500' }}>
+                <span style={{ fontSize: '0.8rem', color: isPaidActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', fontWeight: isPaidActive ? '600' : '500' }}>
                   {displayName}
                 </span>
               </button>
@@ -177,7 +281,7 @@ const WorkspaceShell: React.FC = () => {
       </header>
 
       {/* Main Content Container */}
-      <main style={{ maxWidth: '1180px', margin: '0 auto', padding: 'var(--spacing-md)' }}>
+      <main className="main-content-container" style={{ maxWidth: '1180px', margin: '0 auto', padding: 'var(--spacing-md)' }}>
         {activeModule === 'dashboard' ? (
           <DashboardPage onNavigate={setActiveModule} />
         ) : activeModule === 'study' ? (
@@ -192,6 +296,92 @@ const WorkspaceShell: React.FC = () => {
           <AccountPage />
         )}
       </main>
+
+      {/* Fixed Mobile Bottom Navigation Bar (Parity with Android) */}
+      <nav className="mobile-bottom-nav" aria-label="Mobile Navigation">
+        {[
+          {
+            id: 'dashboard',
+            label: 'Dashboard',
+            icon: (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="14" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="7" rx="1" />
+              </svg>
+            ),
+          },
+          {
+            id: 'study',
+            label: 'Study',
+            icon: (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+            ),
+          },
+          {
+            id: 'planner',
+            label: 'Planner',
+            icon: (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+            ),
+          },
+          {
+            id: 'revision',
+            label: 'Revision',
+            icon: (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="23 4 23 10 17 10" />
+                <polyline points="1 20 1 14 7 14" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+              </svg>
+            ),
+          },
+          {
+            id: 'analytics',
+            label: 'Analytics',
+            icon: (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="20" x2="18" y2="10" />
+                <line x1="12" y1="20" x2="12" y2="4" />
+                <line x1="6" y1="20" x2="6" y2="14" />
+              </svg>
+            ),
+          },
+          {
+            id: 'account',
+            label: 'Account',
+            icon: (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                <circle cx="12" cy="7" r="4" />
+              </svg>
+            ),
+          },
+        ].map((item) => {
+          const isActive = activeModule === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={`mobile-nav-item ${isActive ? 'active' : ''}`}
+              onClick={() => setActiveModule(item.id as typeof activeModule)}
+              aria-label={item.label}
+            >
+              {item.icon}
+              <span className="mobile-nav-label">{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 };

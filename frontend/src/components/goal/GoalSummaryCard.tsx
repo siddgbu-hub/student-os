@@ -44,10 +44,24 @@ export const GoalSummaryCard: React.FC<GoalSummaryCardProps> = ({ progress, onEd
   const targetChapters = goal.targetTotalChapters || 1;
   const progressPct = Math.min(100, Math.round((goal.completedChapters / targetChapters) * 100));
 
-  const badgeColor =
-    statusBadge === 'AHEAD' || statusBadge === 'ON_TRACK'
-      ? { bg: '#f0fdf4', border: '#86efac', text: '#166534', label: '✓ ON TRACK' }
-      : { bg: '#fef2f2', border: '#fca5a5', text: '#991b1b', label: '⚠️ BEHIND PACE' };
+  const getBadgeColor = (badge: string) => {
+    switch (badge) {
+      case 'COMPLETED':
+        return { bg: '#f0fdf4', border: '#86efac', text: '#166534', label: 'COMPLETED' };
+      case 'ON_TRACK':
+      case 'AHEAD':
+        return { bg: '#eff6ff', border: '#93c5fd', text: '#1d4ed8', label: 'ON TRACK' };
+      case 'AT_RISK':
+        return { bg: '#fffbeb', border: '#fcd34d', text: '#b45309', label: 'AT RISK' };
+      case 'BEHIND':
+        return { bg: '#fef2f2', border: '#fca5a5', text: '#991b1b', label: 'BEHIND' };
+      case 'NOT_STARTED':
+      default:
+        return { bg: '#f8fafc', border: '#cbd5e1', text: '#475569', label: 'NOT STARTED' };
+    }
+  };
+
+  const badgeColor = getBadgeColor(statusBadge);
 
   return (
     <div

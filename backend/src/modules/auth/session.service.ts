@@ -14,8 +14,8 @@ export class SessionService {
     const timestamp = now.toISOString();
     const sessionId = crypto.randomUUID();
 
-    // Revoke previous sessions for this account (enforce 1 active session per account)
-    await this.repo.revokeSessionsForAccount(accountId, timestamp);
+    // Revoke previous stale sessions for this specific deviceId
+    await this.repo.revokeSessionsForDevice(deviceId, timestamp);
 
     // Calculate expiration
     const expiresDate = new Date(now.getTime() + SESSION_CONFIG.TOKEN_EXPIRATION_DAYS * 24 * 60 * 60 * 1000);

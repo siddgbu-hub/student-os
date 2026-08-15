@@ -35,8 +35,46 @@ export interface SessionRecord {
   revoked_at: string | null;
 }
 
+export interface AccountIdentityRecord {
+  identity_id: string;
+  account_id: string;
+  provider: string;
+  provider_subject: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export class AuthRepository {
   constructor(private db: D1Database) {}
+
+  async findAccountByIdentity(provider: string, providerSubject: string): Promise<AccountRecord | null> {
+    const result = await this.db
+      .prepare(
+        `SELECT a.* FROM accounts a
+         JOIN account_identities i ON a.account_id = i.account_id
+         WHERE i.provider = ? AND i.provider_subject = ?
+         LIMIT 1`
+      )
+      .bind(provider, providerSubject)
+      .first<AccountRecord>();
+    return result || null;
+  }
+
+  async createAccountIdentity(
+    identityId: string,
+    accountId: string,
+    provider: string,
+    providerSubject: string,
+    timestamp: string
+  ): Promise<void> {
+    await this.db
+      .prepare(
+        `INSERT INTO account_identities (identity_id, account_id, provider, provider_subject, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      )
+      .bind(identityId, accountId, provider, providerSubject, timestamp, timestamp)
+      .run();
+  }
 
   async findAccountByEmail(email: string): Promise<AccountRecord | null> {
     const result = await this.db
@@ -67,6 +105,36 @@ export class AuthRepository {
       .prepare('UPDATE accounts SET last_login_at = ? WHERE account_id = ?')
       .bind(timestamp, accountId)
       .run();
+  }
+
+  async ensureUserProfile(accountId: string, googleName: string | undefined, timestamp: string): Promise<void> {
+    const existing = await this.db
+      .prepare('SELECT full_name FROM user_profiles WHERE account_id = ? LIMIT 1')
+      .bind(accountId)
+      .first<{ full_name: string | null }>();
+
+    const nameToSet = googleName && googleName.trim() !== '' ? googleName.trim() : 'Student';
+
+    if (!existing) {
+      // Profile does not exist -> Create profile with Google's name or fallback 'Student'
+      await this.db
+        .prepare(
+          `INSERT INTO user_profiles (account_id, full_name, created_at, updated_at)
+           VALUES (?, ?, ?, ?)`
+        )
+        .bind(accountId, nameToSet, timestamp, timestamp)
+        .run();
+    } else {
+      // Profile exists -> Populate with Google's name ONLY if current full_name is NULL, empty, or default 'Student'
+      const currentName = existing.full_name ? existing.full_name.trim() : '';
+      if ((currentName === '' || currentName.toLowerCase() === 'student') && googleName && googleName.trim() !== '') {
+        await this.db
+          .prepare('UPDATE user_profiles SET full_name = ?, updated_at = ? WHERE account_id = ?')
+          .bind(googleName.trim(), timestamp, accountId)
+          .run();
+      }
+      // If user has a custom non-default name (e.g. "Alex Dev"), PRESERVE IT!
+    }
   }
 
   async createVerificationRequest(
@@ -144,6 +212,36 @@ export class AuthRepository {
       .run();
   }
 
+  async findActiveAndroidDevicesForAccount(accountId: string): Promise<DeviceRecord[]> {
+    const result = await this.db
+      .prepare(
+        `SELECT * FROM devices 
+         WHERE account_id = ? 
+           AND is_active = 1 
+           AND (device_id LIKE 'android-%' OR device_id LIKE 'android-native-%')
+           AND (device_model IS NULL OR device_model != 'Web Browser')
+           AND (device_id NOT LIKE 'web-%' AND device_id NOT LIKE 'dev-mobile-%')`
+      )
+      .bind(accountId)
+      .all<DeviceRecord>();
+    return result.results || [];
+  }
+
+  async revokeAndroidDevicesForAccount(accountId: string, timestamp: string): Promise<void> {
+    await this.db
+      .prepare(
+        `UPDATE devices 
+         SET is_active = 0, last_active_at = ? 
+         WHERE account_id = ? 
+           AND is_active = 1 
+           AND (device_id LIKE 'android-%' OR device_id LIKE 'android-native-%')
+           AND (device_model IS NULL OR device_model != 'Web Browser')
+           AND (device_id NOT LIKE 'web-%' AND device_id NOT LIKE 'dev-mobile-%')`
+      )
+      .bind(timestamp, accountId)
+      .run();
+  }
+
   async upsertDevice(
     deviceId: string,
     accountId: string,
@@ -194,6 +292,13 @@ export class AuthRepository {
     await this.db
       .prepare('UPDATE sessions SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL')
       .bind(timestamp, accountId)
+      .run();
+  }
+
+  async revokeSessionsForDevice(deviceId: string, timestamp: string): Promise<void> {
+    await this.db
+      .prepare('UPDATE sessions SET revoked_at = ? WHERE device_id = ? AND revoked_at IS NULL')
+      .bind(timestamp, deviceId)
       .run();
   }
 

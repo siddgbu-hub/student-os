@@ -11,6 +11,8 @@ export interface RevisionItemRecord {
   notes: string | null;
   total_revision_count: number;
   retention_score: number;
+  last_rating: 'again' | 'hard' | 'good' | 'easy' | null;
+  lapse_count: number;
   created_at: string;
   updated_at: string;
   last_revision_at: string | null;
@@ -30,6 +32,7 @@ export interface RevisionSessionRecord {
   revision_stage: number;
   status: 'running' | 'paused' | 'completed' | 'cancelled';
   notes: string | null;
+  rating: 'again' | 'hard' | 'good' | 'easy' | null;
   created_at: string;
   updated_at: string;
 }
@@ -54,8 +57,8 @@ export class RevisionRepository {
         `INSERT INTO revision_items (
           id, account_id, subject_id, chapter_id, originating_study_session_id, scheduled_date,
           revision_stage, status, priority, notes, total_revision_count, retention_score,
-          created_at, updated_at, last_revision_at, completed_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, 0, 100, ?, ?, NULL, NULL)`
+          last_rating, lapse_count, created_at, updated_at, last_revision_at, completed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?, 0, 100, NULL, 0, ?, ?, NULL, NULL)`
       )
       .bind(
         id,
@@ -138,6 +141,60 @@ export class RevisionRepository {
     return this.findRevisionItemById(id, accountId);
   }
 
+  async updateRevisionItemAfterReview(
+    id: string,
+    accountId: string,
+    params: {
+      scheduledDate: string;
+      revisionStage: number;
+      status: RevisionItemRecord['status'];
+      retentionScore: number;
+      lastRating: 'again' | 'hard' | 'good' | 'easy';
+      lapseCount: number;
+      completedAt: string | null;
+      timestamp: string;
+    }
+  ): Promise<RevisionItemRecord | null> {
+    const existing = await this.findRevisionItemById(id, accountId);
+    if (!existing) return null;
+
+    await this.db
+      .prepare(
+        `UPDATE revision_items SET
+          scheduled_date = ?,
+          revision_stage = ?,
+          status = ?,
+          retention_score = ?,
+          last_rating = ?,
+          lapse_count = ?,
+          total_revision_count = total_revision_count + 1,
+          last_revision_at = ?,
+          completed_at = ?,
+          updated_at = ?
+        WHERE id = ? AND account_id = ?`
+      )
+      .bind(
+        params.scheduledDate,
+        params.revisionStage,
+        params.status,
+        params.retentionScore,
+        params.lastRating,
+        params.lapseCount,
+        params.timestamp,
+        params.completedAt || null,
+        params.timestamp,
+        id,
+        accountId
+      )
+      .run();
+
+    if (params.status !== existing.status) {
+      await this.logItemAction(crypto.randomUUID(), id, accountId, 'status_change', existing.status, params.status, params.timestamp);
+    }
+
+    return this.findRevisionItemById(id, accountId);
+  }
+
   async archiveRevisionItem(id: string, accountId: string, timestamp: string = new Date().toISOString()): Promise<RevisionItemRecord | null> {
     return this.updateRevisionItem(id, accountId, undefined, undefined, undefined, 'archived', timestamp);
   }
@@ -173,8 +230,8 @@ export class RevisionRepository {
       .prepare(
         `INSERT INTO revision_sessions (
           id, account_id, revision_item_id, subject_id, chapter_id, start_time,
-          duration_seconds, pause_duration_seconds, revision_stage, status, notes, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, 'running', NULL, ?, ?)`
+          duration_seconds, pause_duration_seconds, revision_stage, status, notes, rating, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 0, 0, ?, 'running', NULL, NULL, ?, ?)`
       )
       .bind(id, accountId, revisionItemId, subjectId, chapterId || null, startTime, revisionStage, startTime, startTime)
       .run();
@@ -206,15 +263,16 @@ export class RevisionRepository {
     pauseDurationSeconds: number,
     endTime: string | null,
     notes: string | null,
-    timestamp: string
+    timestamp: string,
+    rating?: 'again' | 'hard' | 'good' | 'easy' | null
   ): Promise<RevisionSessionRecord | null> {
     await this.db
       .prepare(
         `UPDATE revision_sessions SET
-          status = ?, duration_seconds = ?, pause_duration_seconds = ?, end_time = ?, notes = ?, updated_at = ?
+          status = ?, duration_seconds = ?, pause_duration_seconds = ?, end_time = ?, notes = ?, rating = ?, updated_at = ?
         WHERE id = ? AND account_id = ?`
       )
-      .bind(status, durationSeconds, pauseDurationSeconds, endTime || null, notes || null, timestamp, id, accountId)
+      .bind(status, durationSeconds, pauseDurationSeconds, endTime || null, notes || null, rating || null, timestamp, id, accountId)
       .run();
 
     return this.findRevisionSessionById(id, accountId);

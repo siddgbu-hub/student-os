@@ -25,6 +25,14 @@ export interface UserPreferencesDTO {
   timeZone: string;
   showCompletedBlocks: boolean;
   breakReminderIntervalMinutes: number;
+  notificationsEnabled: boolean;
+  plannerRemindersEnabled: boolean;
+  revisionRemindersEnabled: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string; // HH:mm format, e.g. "22:00"
+  quietHoursEnd: string;   // HH:mm format, e.g. "07:00"
+  reminderLeadTimeMinutes: number; // 0, 5, 10, 15, 30
+  showPrivateDetailsInNotifications: boolean;
   updatedAt: string;
 }
 

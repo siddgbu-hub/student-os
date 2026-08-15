@@ -22,12 +22,17 @@ export class GoalService {
     const weeksRemaining = Math.ceil(daysRemaining / 7);
     const monthsRemaining = Math.ceil(daysRemaining / 30);
 
+    const createdDateStr = goal.createdAt ? goal.createdAt.split('T')[0] : todayStr;
+    const createdDateTs = new Date(`${createdDateStr}T00:00:00.000Z`).getTime();
+    const daysElapsed = Math.max(0, Math.floor((todayTs - createdDateTs) / (1000 * 60 * 60 * 24)));
+
     const [studyMinutesCompleted, todayStudyMinutesCompleted] = await Promise.all([
       this.repo.getCompletedStudyMinutesTotal(accountId),
       this.repo.getTodayCompletedStudyMinutes(accountId, todayStr),
     ]);
 
-    const totalRequiredStudyMins = daysRemaining * goal.targetDailyMinutes;
+    const totalPlannedDays = Math.max(1, daysElapsed + daysRemaining);
+    const totalRequiredStudyMins = totalPlannedDays * goal.targetDailyMinutes;
     const studyMinutesRemaining = Math.max(0, totalRequiredStudyMins - studyMinutesCompleted);
 
     const targetChapters = goal.targetTotalChapters || 0;
@@ -48,14 +53,45 @@ export class GoalService {
     projectedDate.setDate(projectedDate.getDate() + daysNeededForRemaining);
     const projectedCompletionDate = projectedDate.toISOString().split('T')[0];
 
-    // Status Badge Calculation (ON_TRACK, BEHIND, AHEAD)
-    let statusBadge: GoalBadgeStatus = 'ON_TRACK';
-    if (todayStudyMinutesCompleted >= goal.targetDailyMinutes) {
-      statusBadge = 'AHEAD';
-    } else if (todayStudyMinutesCompleted >= goal.targetDailyMinutes * 0.7) {
-      statusBadge = 'ON_TRACK';
+    // Status Badge Calculation: NOT_STARTED, ON_TRACK, AT_RISK, BEHIND, COMPLETED
+    let statusBadge: GoalBadgeStatus = 'NOT_STARTED';
+
+    const isCompleted =
+      goal.status === 'completed' ||
+      (targetChapters > 0 && completedChapters >= targetChapters);
+
+    if (isCompleted) {
+      statusBadge = 'COMPLETED';
+    } else if (studyMinutesCompleted === 0 && completedChapters === 0) {
+      // 1. NOT_STARTED: No study activity or chapter progress yet
+      statusBadge = 'NOT_STARTED';
+    } else if (daysElapsed < 2) {
+      // 2. Newly created goal grace period (Day 0 & Day 1)
+      if (studyMinutesCompleted >= 15 || completedChapters > 0 || todayStudyMinutesCompleted > 0) {
+        statusBadge = 'ON_TRACK';
+      } else {
+        statusBadge = 'NOT_STARTED';
+      }
     } else {
-      statusBadge = 'BEHIND';
+      // 3. Multi-day established goal (daysElapsed >= 2): evaluate pace against expected progress
+      const expectedStudyMinutes = daysElapsed * goal.targetDailyMinutes;
+      const minuteRatio = expectedStudyMinutes > 0 ? studyMinutesCompleted / expectedStudyMinutes : 1.0;
+
+      const expectedChapters = totalPlannedDays > 0 ? (daysElapsed / totalPlannedDays) * targetChapters : 0;
+      const chapterRatio = expectedChapters > 0 ? completedChapters / expectedChapters : 1.0;
+
+      const effectivePace = targetChapters > 0 ? Math.max(minuteRatio, chapterRatio) : minuteRatio;
+
+      if (
+        todayStudyMinutesCompleted >= goal.targetDailyMinutes ||
+        effectivePace >= 0.80
+      ) {
+        statusBadge = 'ON_TRACK';
+      } else if (effectivePace >= 0.50) {
+        statusBadge = 'AT_RISK';
+      } else {
+        statusBadge = 'BEHIND';
+      }
     }
 
     return {

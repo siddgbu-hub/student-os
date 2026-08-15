@@ -237,7 +237,7 @@ export const RevisionPage: React.FC = () => {
               <Button
                 type="button"
                 variant="primary"
-                onClick={() => endSession(completionNotes)}
+                onClick={() => endSession('good', completionNotes)}
                 style={{ backgroundColor: '#166534', borderColor: '#166534', color: '#ffffff', height: '36px' }}
               >
                 ✓ Complete & Save

@@ -7,7 +7,11 @@
 		"nodejs_compat"
 	],
 	"vars": {
-		"ENVIRONMENT": "production"
+		"ENVIRONMENT": "production",
+		"ALLOWED_ORIGIN": "https://student-os-19f.pages.dev",
+		"BREVO_FROM_EMAIL": "studentos.apk@gmail.com",
+		"BREVO_FROM_NAME": "Student OS",
+		"GOOGLE_CLIENT_ID": "272183133963-1scshesrdvt7s6ke9g0rco15rapack7t.apps.googleusercontent.com"
 	},
 	"d1_databases": [
 		{
@@ -21,12 +25,16 @@
 		{
 			"binding": "BUCKET",
 			"bucket_name": "student-os-storage"
-		},
+		}
 	],
 	"env": {
 		"production": {
 			"vars": {
-				"ENVIRONMENT": "production"
+				"ENVIRONMENT": "production",
+				"ALLOWED_ORIGIN": "https://student-os-19f.pages.dev",
+				"BREVO_FROM_EMAIL": "studentos.apk@gmail.com",
+				"BREVO_FROM_NAME": "Student OS",
+				"GOOGLE_CLIENT_ID": "272183133963-1scshesrdvt7s6ke9g0rco15rapack7t.apps.googleusercontent.com"
 			},
 			"d1_databases": [
 				{

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import { RevisionItemDTO, RevisionSessionDTO, DailyRevisionSummaryDTO, RescheduleRevisionItemInput } from '@student-os/shared';
+import { RevisionItemDTO, RevisionSessionDTO, DailyRevisionSummaryDTO, RescheduleRevisionItemInput, RevisionRating } from '@student-os/shared';
 import { RevisionService } from '../services/revisionService.js';
 
 interface RevisionContextType {
@@ -14,7 +14,7 @@ interface RevisionContextType {
   startSession: (revisionItemId: string) => Promise<void>;
   pauseSession: () => Promise<void>;
   resumeSession: () => Promise<void>;
-  endSession: (notes?: string) => Promise<void>;
+  endSession: (rating?: RevisionRating, notes?: string) => Promise<void>;
   cancelSession: () => Promise<void>;
   rescheduleItem: (id: string, input: RescheduleRevisionItemInput) => Promise<void>;
   archiveItem: (id: string) => Promise<void>;
@@ -117,11 +117,11 @@ export const RevisionProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
-  const endSession = async (notes?: string) => {
+  const endSession = async (rating: RevisionRating = 'good', notes?: string) => {
     if (!activeSession) return;
     try {
       setError(null);
-      await RevisionService.endRevisionSession(activeSession.id, notes);
+      await RevisionService.endRevisionSession(activeSession.id, rating, notes);
       setActiveSession(null);
       setElapsedSeconds(0);
       setIsPaused(false);

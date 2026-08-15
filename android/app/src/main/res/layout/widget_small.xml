@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_small_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#18181B"
+    android:padding="12dp">
+
+    <!-- Header Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Student OS"
+            android:textColor="#3B82F6"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_status_tag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Today's Study"
+            android:textColor="#A1A1AA"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Subject / Secondary Text -->
+    <TextView
+        android:id="@+id/widget_subject_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="General Study"
+        android:textColor="#FAFAFA"
+        android:textSize="13sp"
+        android:textStyle="bold"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:layout_marginTop="2dp" />
+
+    <!-- Timer / Progress readout -->
+    <TextView
+        android:id="@+id/widget_study_time"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="21m studied"
+        android:textColor="#FAFAFA"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:layout_marginTop="2dp" />
+
+    <Chronometer
+        android:id="@+id/widget_chronometer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#FAFAFA"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:layout_marginTop="2dp"
+        android:visibility="gone" />
+
+    <!-- Remaining target -->
+    <TextView
+        android:id="@+id/widget_remaining_goal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="99m remaining"
+        android:textColor="#93C5FD"
+        android:textSize="11sp"
+        android:layout_marginTop="1dp" />
+
+    <Chronometer
+        android:id="@+id/widget_countdown_chronometer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#93C5FD"
+        android:textSize="11sp"
+        android:layout_marginTop="1dp"
+        android:visibility="gone" />
+
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <!-- Action Controls Container -->
+    <TextView
+        android:id="@+id/widget_btn_start"
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:background="#2563EB"
+        android:text="▶ Start Study"
+        android:textColor="#FFFFFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:visibility="visible" />
+
+    <LinearLayout
+        android:id="@+id/widget_active_controls"
+        android:layout_width="match_parent"
+        android:layout_height="32dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_btn_pause"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="#D97706"
+            android:text="⏸ Pause"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginEnd="4dp"
+            android:visibility="visible" />
+
+        <TextView
+            android:id="@+id/widget_btn_resume"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="#2563EB"
+            android:text="▶ Resume"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginEnd="4dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/widget_btn_complete"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="#059669"
+            android:text="✓ Complete"
+            android:textColor="#FFFFFF"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:gravity="center" />
+    </LinearLayout>
+
+</LinearLayout>

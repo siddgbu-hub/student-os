@@ -13,6 +13,94 @@ import {
 // Spaced repetition stage intervals in days
 const STAGE_INTERVALS_DAYS = [1, 3, 7, 14, 30];
 
+export interface RevisionStateInput {
+  revisionStage: number;
+  retentionScore: number;
+  lapseCount: number;
+  completedAt: string | null;
+}
+
+export interface RevisionStateResult {
+  nextStage: number;
+  intervalDays: number;
+  status: 'scheduled' | 'completed';
+  retentionScore: number;
+  lapseCount: number;
+  completedAt: string | null;
+}
+
+export function calculateNextRevisionState(
+  item: RevisionStateInput,
+  rating: 'again' | 'hard' | 'good' | 'easy',
+  timestamp: string
+): RevisionStateResult {
+  const currentStage = Math.max(1, Math.min(5, item.revisionStage));
+
+  let nextStage = currentStage;
+  let intervalDays = 1;
+  let newStatus: 'scheduled' | 'completed' = 'scheduled';
+  let newRetentionScore = item.retentionScore;
+  let newLapseCount = item.lapseCount;
+  let completedAt: string | null = null;
+
+  if (rating === 'again') {
+    nextStage = 1;
+    intervalDays = 1;
+    newStatus = 'scheduled';
+    newRetentionScore = Math.max(0, item.retentionScore - 15);
+    newLapseCount = item.lapseCount + 1;
+    completedAt = null;
+  } else if (rating === 'hard') {
+    nextStage = currentStage;
+    const hardIntervals = [1, 2, 6, 11, 23];
+    intervalDays = hardIntervals[currentStage - 1] || 1;
+    newStatus = 'scheduled';
+    newRetentionScore = Math.max(0, item.retentionScore - 5);
+    newLapseCount = item.lapseCount;
+    completedAt = item.completedAt;
+  } else if (rating === 'good') {
+    if (currentStage >= 5) {
+      nextStage = 5;
+      intervalDays = 30;
+      newStatus = 'completed';
+      completedAt = timestamp;
+    } else {
+      nextStage = currentStage + 1;
+      intervalDays = STAGE_INTERVALS_DAYS[nextStage - 1];
+      newStatus = 'scheduled';
+      completedAt = null;
+    }
+    newRetentionScore = Math.min(100, item.retentionScore + 5);
+    newLapseCount = item.lapseCount;
+  } else if (rating === 'easy') {
+    if (currentStage >= 4) {
+      nextStage = 5;
+      intervalDays = 30;
+      newStatus = 'completed';
+      completedAt = timestamp;
+    } else {
+      nextStage = Math.min(5, currentStage + 2);
+      if (currentStage === 1) intervalDays = 10;
+      else if (currentStage === 2) intervalDays = 21;
+      else if (currentStage === 3) intervalDays = 45;
+      else intervalDays = 30;
+      newStatus = 'scheduled';
+      completedAt = null;
+    }
+    newRetentionScore = 100;
+    newLapseCount = item.lapseCount;
+  }
+
+  return {
+    nextStage,
+    intervalDays,
+    status: newStatus,
+    retentionScore: newRetentionScore,
+    lapseCount: newLapseCount,
+    completedAt,
+  };
+}
+
 export class RevisionService {
   constructor(
     private repo: RevisionRepository,
@@ -276,10 +364,14 @@ export class RevisionService {
   async endRevisionSession(
     accountId: string,
     sessionId: string,
+    rating: 'again' | 'hard' | 'good' | 'easy' = 'good',
     notes?: string | null,
     now: Date = new Date()
   ): Promise<{ session: RevisionSessionDTO; item: RevisionItemDTO }> {
     const session = await this.findSessionOrThrow(sessionId, accountId);
+    if (session.status !== 'running' && session.status !== 'paused') {
+      throw new Error('SESSION_NOT_RUNNING');
+    }
     const timestamp = now.toISOString();
 
     let durationSeconds = session.duration_seconds;
@@ -296,38 +388,65 @@ export class RevisionService {
       session.pause_duration_seconds,
       timestamp,
       notes || session.notes,
-      timestamp
+      timestamp,
+      rating
     );
 
     // Update parent Revision Item
     const item = await this.findItemOrThrow(session.revision_item_id, accountId);
-    const nextStage = item.revision_stage + 1;
+    const stateResult = calculateNextRevisionState(
+      {
+        revisionStage: item.revision_stage,
+        retentionScore: item.retention_score,
+        lapseCount: item.lapse_count,
+        completedAt: item.completed_at,
+      },
+      rating,
+      timestamp
+    );
 
-    // Calculate next scheduled date
-    const intervalDays = STAGE_INTERVALS_DAYS[Math.min(nextStage - 1, STAGE_INTERVALS_DAYS.length - 1)];
+    const {
+      nextStage,
+      intervalDays,
+      status: newStatus,
+      retentionScore: newRetentionScore,
+      lapseCount: newLapseCount,
+      completedAt,
+    } = stateResult;
+
+    // Calculate next scheduled date from today
     const nextDate = new Date(now);
     nextDate.setDate(nextDate.getDate() + intervalDays);
     const nextDateStr = nextDate.toISOString().split('T')[0];
 
-    const isFinalStage = nextStage > STAGE_INTERVALS_DAYS.length;
-    const newStatus = isFinalStage ? 'completed' : 'scheduled';
-
-    await this.repo.updateRevisionItem(
+    const updatedItem = await this.repo.updateRevisionItemAfterReview(
       item.id,
       accountId,
-      nextDateStr,
-      undefined,
-      undefined,
+      {
+        scheduledDate: nextDateStr,
+        revisionStage: nextStage,
+        status: newStatus,
+        retentionScore: newRetentionScore,
+        lastRating: rating,
+        lapseCount: newLapseCount,
+        completedAt: completedAt,
+        timestamp: timestamp,
+      }
+    );
+
+    await this.repo.logItemAction(
+      crypto.randomUUID(),
+      item.id,
+      accountId,
+      'session_completed',
+      item.status,
       newStatus,
       timestamp
     );
 
-    // Additional update fields: stage, count, last_revision_at
-    await this.repo.logItemAction(crypto.randomUUID(), item.id, accountId, 'session_completed', item.status, newStatus, timestamp);
-
     return {
       session: this.mapSessionToDTO(completedSession!),
-      item: this.mapItemToDTO((await this.repo.findRevisionItemById(item.id, accountId))!),
+      item: this.mapItemToDTO(updatedItem!),
     };
   }
 
@@ -385,6 +504,8 @@ export class RevisionService {
       notes: record.notes,
       totalRevisionCount: record.total_revision_count,
       retentionScore: record.retention_score,
+      lastRating: record.last_rating,
+      lapseCount: record.lapse_count,
       createdAt: record.created_at,
       updatedAt: record.updated_at,
       lastRevisionAt: record.last_revision_at,
@@ -406,6 +527,7 @@ export class RevisionService {
       revisionStage: record.revision_stage,
       status: record.status,
       notes: record.notes,
+      rating: record.rating,
       createdAt: record.created_at,
       updatedAt: record.updated_at,
     };

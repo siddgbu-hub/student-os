@@ -196,11 +196,11 @@ export class RevisionService {
     return json.data;
   }
 
-  static async endRevisionSession(id: string, notes?: string): Promise<{ session: RevisionSessionDTO; item: RevisionItemDTO }> {
+  static async endRevisionSession(id: string, rating: 'again' | 'hard' | 'good' | 'easy' = 'good', notes?: string): Promise<{ session: RevisionSessionDTO; item: RevisionItemDTO }> {
     const res = await fetch(`${API_BASE_URL}/sessions/${id}/end`, {
       method: 'POST',
       headers: this.getHeaders(),
-      body: JSON.stringify({ notes }),
+      body: JSON.stringify({ rating, notes }),
     });
     const json = await res.json();
     if (!json.success || !json.data) {

@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAccount } from '../../context/AccountContext.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { Button } from '@student-os/ui';
+import { EntitlementDto, PlanDto, PaymentConfigDto } from '@student-os/shared';
+import { EntitlementService } from '../../services/entitlementService.js';
+import { UpgradeModal } from '../../components/entitlement/UpgradeModal.js';
 
 export const AccountPage: React.FC = () => {
   const { overview, profile, preferences, devices, loading, error, updateProfile, updatePreferences, revokeDevice, deleteAccount } =
@@ -35,6 +38,18 @@ export const AccountPage: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [deleting, setDeleting] = useState(false);
+
+  // Subscription and entitlement state
+  const [entitlement, setEntitlement] = useState<EntitlementDto | null>(null);
+  const [plans, setPlans] = useState<PlanDto[]>([]);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfigDto | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  useEffect(() => {
+    EntitlementService.getEntitlement().then(setEntitlement).catch(() => {});
+    EntitlementService.getPlans().then(setPlans).catch(() => {});
+    EntitlementService.getPaymentConfig().then(setPaymentConfig).catch(() => {});
+  }, []);
 
   // Sync state when profile loads
   React.useEffect(() => {
@@ -170,6 +185,120 @@ export const AccountPage: React.FC = () => {
 
       {/* MAIN CONTENT GRID */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 'var(--spacing-md)' }}>
+        {/* SUBSCRIPTION & PLAN DETAILS CARD */}
+        {(() => {
+          const isPaid = entitlement?.isPaid === true;
+          const isExpired = entitlement?.status === 'expired';
+          const planName = entitlement?.currentPlanId === 'yearly'
+            ? 'Yearly (365 Days)'
+            : entitlement?.currentPlanId === 'monthly'
+            ? 'Monthly (30 Days)'
+            : '7-Day Free Trial';
+          const statusText = isExpired ? 'Expired' : isPaid ? 'Active' : 'Trial Active';
+          const statusColor = isExpired ? '#dc2626' : isPaid ? '#10b981' : 'var(--color-accent)';
+
+          return (
+            <section
+              style={{
+                gridColumn: '1 / -1',
+                padding: 'var(--spacing-md)',
+                borderRadius: 'var(--radius-lg)',
+                backgroundColor: 'var(--color-bg-secondary)',
+                border: '1px solid var(--color-border)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--spacing-sm)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div
+                    style={{
+                      width: '38px',
+                      height: '38px',
+                      borderRadius: '50%',
+                      backgroundColor: isPaid ? 'rgba(245, 158, 11, 0.15)' : 'rgba(37, 99, 235, 0.12)',
+                      border: isPaid ? '1.5px solid rgba(245, 158, 11, 0.5)' : '1.5px solid rgba(37, 99, 235, 0.4)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '18px',
+                    }}
+                  >
+                    {isPaid ? '👑' : '⏳'}
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: 'var(--color-text-primary)' }}>
+                      {isPaid ? 'Student OS Pro' : 'Student OS Free Trial'}
+                    </h3>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+                      Subscription & Feature Access
+                    </div>
+                  </div>
+                </div>
+
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    fontWeight: '800',
+                    padding: '3px 10px',
+                    borderRadius: '6px',
+                    backgroundColor: isExpired ? 'rgba(239, 68, 68, 0.12)' : isPaid ? 'rgba(16, 185, 129, 0.15)' : 'rgba(37, 99, 235, 0.12)',
+                    color: statusColor,
+                    border: `1px solid ${isExpired ? 'rgba(239, 68, 68, 0.3)' : isPaid ? 'rgba(16, 185, 129, 0.35)' : 'rgba(37, 99, 235, 0.3)'}`,
+                  }}
+                >
+                  {statusText}
+                </span>
+              </div>
+
+              <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '4px 0' }} />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: '600' }}>Plan</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--color-text-primary)', marginTop: '2px' }}>
+                    {planName}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', fontWeight: '600' }}>Expires</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: '700', color: 'var(--color-text-primary)', marginTop: '2px' }}>
+                    {entitlement?.expiresAt
+                      ? new Date(entitlement.expiresAt).toLocaleString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: true,
+                        })
+                      : 'Active'}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '4px' }}>
+                <Button
+                  type="button"
+                  onClick={() => setShowUpgradeModal(true)}
+                  style={{
+                    backgroundColor: isPaid && !isExpired ? 'transparent' : 'var(--color-accent)',
+                    border: isPaid && !isExpired ? '1px solid var(--color-border)' : 'none',
+                    color: isPaid && !isExpired ? 'var(--color-text-primary)' : '#ffffff',
+                    fontSize: '0.82rem',
+                    fontWeight: '700',
+                    height: '36px',
+                    padding: '0 18px',
+                  }}
+                >
+                  {isPaid && !isExpired ? 'Manage / Change Plan' : 'Upgrade to Student OS Pro'}
+                </Button>
+              </div>
+            </section>
+          );
+        })()}
+
         {/* SECTION 1: PERSONAL & ACADEMIC PROFILE */}
         <section
           style={{
@@ -595,6 +724,16 @@ export const AccountPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Upgrade & Subscription Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        plans={plans}
+        contactWhatsApp={paymentConfig?.contactWhatsApp}
+        accountEmail={overview?.email || ''}
+        entitlement={entitlement}
+        onClose={() => setShowUpgradeModal(false)}
+      />
     </div>
   );
 };

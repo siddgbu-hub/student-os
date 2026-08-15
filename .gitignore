@@ -18,3 +18,21 @@ build/
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# IDE files
+.idea/
+*.iml
+
+# Android Keystore & Signing Secrets
+*.keystore
+*.jks
+*.key
+release-signing.properties
+android/release-keystore/
+android/local.properties
+.gradle/
+
+# Scratch & Local temporary scripts
+scratch/
+
+

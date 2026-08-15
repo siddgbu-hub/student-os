@@ -9,6 +9,7 @@ import {
   UpdateRevisionItemSchema,
   RescheduleRevisionItemSchema,
   StartRevisionSessionSchema,
+  EndRevisionSessionSchema,
 } from '@student-os/shared';
 
 export const revisionRouter = new Hono<{
@@ -194,10 +195,16 @@ revisionRouter.post('/sessions/:id/end', async (c) => {
   const accountId = c.get('accountId');
   const id = c.req.param('id');
   const body = await c.req.json().catch(() => ({}));
+  const parseRes = EndRevisionSessionSchema.safeParse(body);
+
+  if (!parseRes.success) {
+    return c.json({ success: false, error: 'VALIDATION_ERROR', details: parseRes.error.flatten() }, 400);
+  }
+
   const service = getRevisionService(c);
 
   try {
-    const result = await service.endRevisionSession(accountId, id, body.notes);
+    const result = await service.endRevisionSession(accountId, id, parseRes.data.rating, parseRes.data.notes);
     return c.json({ success: true, data: result }, 200);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'END_SESSION_FAILED';

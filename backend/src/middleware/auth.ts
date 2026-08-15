@@ -23,7 +23,24 @@ export async function createAuthMiddleware(c: Context, next: Next) {
   }
 
   const token = authHeader.substring(7);
-  const jwtSecret = c.env.JWT_SECRET || 'dev-secret-key-change-in-production';
+  const isProd = c.env.ENVIRONMENT === 'production';
+  const rawJwtSecret = c.env.JWT_SECRET;
+
+  if (isProd && (!rawJwtSecret || rawJwtSecret === 'dev-secret-key-change-in-production')) {
+    return c.json(
+      {
+        success: false,
+        error: {
+          code: 'CONFIG_ERROR',
+          message: 'JWT_SECRET environment variable must be configured with a production secret.',
+        },
+        timestamp: new Date().toISOString(),
+      },
+      500
+    );
+  }
+
+  const jwtSecret = rawJwtSecret || 'dev-secret-key-change-in-production';
   const repo = new AuthRepository(c.env.DB);
   const sessionService = new SessionService(repo);
 
