@@ -19,7 +19,7 @@ export const Badge: React.FC<BadgeProps> = ({
   }[size];
 
   const variantStyles = {
-    neutral: 'bg-slate-850 text-slate-300 border border-slate-700',
+    neutral: 'bg-slate-800 text-slate-300 border border-slate-700',
     success: 'bg-emerald-950/70 text-emerald-400 border border-emerald-800/80',
     warning: 'bg-amber-950/70 text-amber-400 border border-amber-800/80',
     danger: 'bg-rose-950/70 text-rose-400 border border-rose-800/80',

@@ -296,17 +296,17 @@ export const StudentsPage: React.FC = () => {
                     <td>{getStatusBadge(student)}</td>
                     <td>{getDaysRemainingDisplay(student)}</td>
                     <td>
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-slate-300">
                         {formatDate(student.expiresAt)}
                       </span>
                     </td>
                     <td>
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-slate-300">
                         {formatDate(student.lastLoginAt)}
                       </span>
                     </td>
                     <td>
-                      <span className="text-xs text-slate-300 font-medium">
+                      <span className="text-xs text-slate-200 font-semibold font-mono">
                         {student.deviceCount ?? 0}
                       </span>
                     </td>

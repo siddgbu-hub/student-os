@@ -358,7 +358,7 @@ export const PaymentsPage: React.FC = () => {
                                 {payment.discountPercent}% OFF
                               </span>
                             </div>
-                            <div className="text-[11px] text-slate-500 line-through font-mono">
+                            <div className="text-[11px] text-slate-400 line-through font-mono">
                               {formatCurrency(payment.originalAmountPaise || (payment.amountPaise + (payment.discountAmountPaise || 0)))}
                             </div>
                           </div>
@@ -367,7 +367,7 @@ export const PaymentsPage: React.FC = () => {
                             <span className="font-bold text-emerald-400 font-mono">
                               {formatCurrency(payment.amountPaise)}
                             </span>
-                            <span className="text-[10px] text-slate-500 block uppercase font-mono">
+                            <span className="text-[10px] text-slate-400 block uppercase font-mono">
                               {payment.currency}
                             </span>
                           </>
@@ -378,24 +378,24 @@ export const PaymentsPage: React.FC = () => {
                     <td>{getStatusBadge(payment.status)}</td>
                     <td>
                       <span className="font-mono text-xs text-slate-300">
-                        {payment.transactionReference || <span className="text-slate-500 italic">None</span>}
+                        {payment.transactionReference || <span className="text-slate-400 italic">None</span>}
                       </span>
                       {payment.notes && (
-                        <p className="text-[11px] text-slate-400 italic mt-0.5 max-w-xs truncate" title={payment.notes}>
+                        <p className="text-[11px] text-slate-300 italic mt-0.5 max-w-xs truncate" title={payment.notes}>
                           {payment.notes}
                         </p>
                       )}
                     </td>
                     <td>
-                      <span className="font-mono text-xs text-slate-400">
+                      <span className="font-mono text-xs text-slate-300">
                         {payment.recordedBy ? `${payment.recordedBy.substring(0, 8)}...` : 'System'}
                       </span>
-                      <span className="text-[10px] text-slate-500 block capitalize">
+                      <span className="text-[10px] text-slate-400 block capitalize">
                         {payment.source === 'manual_admin' ? 'Manual Admin' : payment.source}
                       </span>
                     </td>
                     <td>
-                      <span className="text-xs text-slate-400">
+                      <span className="text-xs text-slate-300">
                         {formatDate(payment.createdAt)}
                       </span>
                     </td>

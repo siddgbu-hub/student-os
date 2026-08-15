@@ -312,7 +312,7 @@ export const AuditPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleCopy(log.accountId, `row-${log.id}`)}
-                            className="text-slate-500 hover:text-slate-300 p-0.5"
+                            className="text-slate-400 hover:text-white p-0.5"
                             title="Copy Account ID"
                           >
                             {copiedField === `row-${log.id}` ? (
@@ -328,7 +328,7 @@ export const AuditPage: React.FC = () => {
                           {log.planId}
                         </span>
                         {log.expiryDate && (
-                          <span className="text-[11px] text-slate-500 block">
+                          <span className="text-[11px] text-slate-400 block">
                             Exp: {formatDate(log.expiryDate).split(',')[0]}
                           </span>
                         )}
@@ -337,7 +337,7 @@ export const AuditPage: React.FC = () => {
                         <span className="font-mono text-xs text-slate-300">
                           {log.grantedBy ? (log.grantedBy === 'system' ? 'System' : `${log.grantedBy.substring(0, 8)}...`) : 'System'}
                         </span>
-                        <span className="text-[10px] text-slate-500 block capitalize">
+                        <span className="text-[10px] text-slate-400 block capitalize">
                           {log.source ? log.source.replace(/_/g, ' ') : 'manual admin'}
                         </span>
                       </td>
@@ -348,12 +348,12 @@ export const AuditPage: React.FC = () => {
                               {reason}
                             </span>
                           ) : (
-                            <span className="text-slate-500 italic">No notes provided</span>
+                            <span className="text-slate-400 italic">No notes provided</span>
                           )}
                         </div>
                       </td>
                       <td>
-                        <span className="text-xs text-slate-400 whitespace-nowrap">
+                        <span className="text-xs text-slate-300 whitespace-nowrap">
                           {formatDate(log.createdAt)}
                         </span>
                       </td>

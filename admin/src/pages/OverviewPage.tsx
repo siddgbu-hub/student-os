@@ -118,7 +118,7 @@ export const OverviewPage: React.FC = () => {
                 <div className="text-2xl font-bold text-white font-mono">
                   {metrics.totalStudents.toLocaleString('en-IN')}
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">Registered student accounts</p>
+                <p className="text-[11px] text-slate-400 mt-1">Registered student accounts</p>
               </CardContent>
             </Card>
 
@@ -156,7 +156,7 @@ export const OverviewPage: React.FC = () => {
                 <div className="text-2xl font-bold text-purple-400 font-mono">
                   {metrics.activeTrials.toLocaleString('en-IN')}
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">Active free trial users</p>
+                <p className="text-[11px] text-slate-400 mt-1">Active free trial users</p>
               </CardContent>
             </Card>
 
@@ -174,7 +174,7 @@ export const OverviewPage: React.FC = () => {
                 <div className="text-2xl font-bold text-rose-400 font-mono">
                   {metrics.expiringNext7Days.toLocaleString('en-IN')}
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">Renewal horizon</p>
+                <p className="text-[11px] text-slate-400 mt-1">Renewal horizon</p>
               </CardContent>
             </Card>
 
@@ -192,7 +192,7 @@ export const OverviewPage: React.FC = () => {
                 <div className="text-2xl font-bold text-emerald-400 font-mono">
                   {formatCurrency(metrics.totalRevenuePaise)}
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1">All-time ledger total</p>
+                <p className="text-[11px] text-slate-400 mt-1">All-time ledger total</p>
               </CardContent>
             </Card>
           </div>
@@ -213,7 +213,7 @@ export const OverviewPage: React.FC = () => {
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="p-3.5 bg-slate-950/80 border border-slate-800/80 rounded-lg">
-                  <span className="text-[10px] text-slate-500 uppercase font-semibold block">Monthly Pro</span>
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Monthly Pro</span>
                   <span className="text-lg font-bold text-white font-mono mt-0.5 block">
                     {metrics.activeProMonthly}
                   </span>
@@ -221,7 +221,7 @@ export const OverviewPage: React.FC = () => {
                 </div>
 
                 <div className="p-3.5 bg-slate-950/80 border border-slate-800/80 rounded-lg">
-                  <span className="text-[10px] text-slate-500 uppercase font-semibold block">Yearly Pro</span>
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Yearly Pro</span>
                   <span className="text-lg font-bold text-white font-mono mt-0.5 block">
                     {metrics.activeProYearly}
                   </span>
@@ -229,7 +229,7 @@ export const OverviewPage: React.FC = () => {
                 </div>
 
                 <div className="p-3.5 bg-slate-950/80 border border-slate-800/80 rounded-lg">
-                  <span className="text-[10px] text-slate-500 uppercase font-semibold block">Active Trials</span>
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Active Trials</span>
                   <span className="text-lg font-bold text-purple-400 font-mono mt-0.5 block">
                     {metrics.activeTrials}
                   </span>
@@ -237,11 +237,11 @@ export const OverviewPage: React.FC = () => {
                 </div>
 
                 <div className="p-3.5 bg-slate-950/80 border border-slate-800/80 rounded-lg">
-                  <span className="text-[10px] text-slate-500 uppercase font-semibold block">Expired / Inactive</span>
-                  <span className="text-lg font-bold text-slate-400 font-mono mt-0.5 block">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block">Expired / Inactive</span>
+                  <span className="text-lg font-bold text-slate-300 font-mono mt-0.5 block">
                     {metrics.expiredAccounts}
                   </span>
-                  <span className="text-[11px] text-slate-500 mt-0.5 block">Expired accounts</span>
+                  <span className="text-[11px] text-slate-400 mt-0.5 block">Expired accounts</span>
                 </div>
               </div>
             </div>
@@ -280,14 +280,14 @@ export const OverviewPage: React.FC = () => {
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-sm space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <h3 className="text-sm font-semibold text-white">Administrative Navigation Shortcuts</h3>
-              <span className="text-xs text-slate-500">Quick Access</span>
+              <span className="text-xs text-slate-400">Quick Access</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               <button
                 type="button"
                 onClick={() => navigate('/students')}
-                className="p-4 bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 rounded-xl text-left transition-colors flex items-center justify-between group"
+                className="p-4 bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 rounded-xl text-left transition-colors flex items-center justify-between group cursor-pointer"
               >
                 <div>
                   <div className="font-semibold text-white text-sm flex items-center gap-2">
@@ -298,13 +298,13 @@ export const OverviewPage: React.FC = () => {
                     Search students, inspect plans, and grant or extend subscriptions.
                   </p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors ml-3 flex-shrink-0" />
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors ml-3 flex-shrink-0" />
               </button>
 
               <button
                 type="button"
                 onClick={() => navigate('/payments')}
-                className="p-4 bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 rounded-xl text-left transition-colors flex items-center justify-between group"
+                className="p-4 bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 rounded-xl text-left transition-colors flex items-center justify-between group cursor-pointer"
               >
                 <div>
                   <div className="font-semibold text-white text-sm flex items-center gap-2">
@@ -315,13 +315,13 @@ export const OverviewPage: React.FC = () => {
                     View transactions and record offline UPI, cash, or bank transfers.
                   </p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors ml-3 flex-shrink-0" />
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors ml-3 flex-shrink-0" />
               </button>
 
               <button
                 type="button"
                 onClick={() => navigate('/audit')}
-                className="p-4 bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 rounded-xl text-left transition-colors flex items-center justify-between group"
+                className="p-4 bg-slate-950/70 hover:bg-slate-800/60 border border-slate-800 rounded-xl text-left transition-colors flex items-center justify-between group cursor-pointer"
               >
                 <div>
                   <div className="font-semibold text-white text-sm flex items-center gap-2">
@@ -332,7 +332,7 @@ export const OverviewPage: React.FC = () => {
                     Inspect immutable administrative logs and operator provenance.
                   </p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors ml-3 flex-shrink-0" />
+                <ArrowRight className="w-4 h-4 text-slate-400 group-hover:text-white transition-colors ml-3 flex-shrink-0" />
               </button>
             </div>
           </div>

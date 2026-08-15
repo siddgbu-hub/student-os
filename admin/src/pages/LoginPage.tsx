@@ -123,7 +123,7 @@ export const LoginPage: React.FC = () => {
                     required
                   />
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1.5">
+                <p className="text-[11px] text-slate-400 mt-1.5">
                   Verification codes are sent directly to your registered email. Only accounts with Owner or Admin RBAC permissions can access this console.
                 </p>
               </div>
@@ -172,7 +172,7 @@ export const LoginPage: React.FC = () => {
                   6-Digit Verification Code
                 </label>
                 <div className="relative">
-                  <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <KeyRound className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     id="admin-otp"
                     type="text"
@@ -182,7 +182,7 @@ export const LoginPage: React.FC = () => {
                     value={otp}
                     onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                     placeholder="123456"
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-lg text-slate-100 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-mono tracking-widest text-center"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all font-mono tracking-widest text-center"
                     autoComplete="one-time-code"
                     autoFocus
                     required
@@ -215,7 +215,7 @@ export const LoginPage: React.FC = () => {
 
               <div className="pt-2 text-center">
                 {countdown > 0 ? (
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-slate-400">
                     Resend code in {countdown}s
                   </span>
                 ) : (
@@ -233,7 +233,7 @@ export const LoginPage: React.FC = () => {
           )}
         </div>
 
-        <p className="text-center text-[11px] text-slate-600 mt-6">
+        <p className="text-center text-[11px] text-slate-400 mt-6">
           Student OS Internal Production Infrastructure • Strict Server-Side RBAC Active
         </p>
       </div>

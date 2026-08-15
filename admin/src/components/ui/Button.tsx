@@ -6,6 +6,45 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   loading?: boolean;
 }
 
+/**
+ * Variant style map — all critical colors are set via inline styles on the
+ * data attribute so they cannot be lost even if a CSS utility class is missing
+ * from the production bundle. The CSS classes handle hover/focus/transitions.
+ */
+const variantInlineStyles: Record<NonNullable<ButtonProps['variant']>, React.CSSProperties> = {
+  primary: {
+    backgroundColor: '#2563eb',
+    color: '#ffffff',
+    borderColor: 'transparent',
+  },
+  secondary: {
+    backgroundColor: '#334155',
+    color: '#f1f5f9',
+    borderColor: '#475569',
+  },
+  danger: {
+    backgroundColor: '#e11d48',
+    color: '#ffffff',
+    borderColor: 'transparent',
+  },
+  ghost: {
+    backgroundColor: 'transparent',
+    color: '#cbd5e1',
+    borderColor: 'transparent',
+  },
+  outline: {
+    backgroundColor: 'transparent',
+    color: '#e2e8f0',
+    borderColor: '#334155',
+  },
+};
+
+const sizeClasses = {
+  sm: 'px-2\\.5 py-1\\.5 text-xs gap-1\\.5',
+  md: 'px-4 py-2 text-sm gap-2',
+  lg: 'px-5 py-2\\.5 text-base gap-2\\.5',
+};
+
 export const Button: React.FC<ButtonProps> = ({
   children,
   variant = 'primary',
@@ -13,28 +52,31 @@ export const Button: React.FC<ButtonProps> = ({
   loading = false,
   disabled,
   className = '',
+  style,
   ...props
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed rounded-md';
+  const baseClass =
+    'socc-btn inline-flex items-center justify-center font-medium transition-colors focus:outline-none rounded-md border';
 
-  const sizeStyles = {
-    sm: 'px-2.5 py-1.5 text-xs gap-1.5',
-    md: 'px-4 py-2 text-sm gap-2',
-    lg: 'px-5 py-2.5 text-base gap-2.5',
+  const sizeClass = {
+    sm: 'socc-btn-sm',
+    md: 'socc-btn-md',
+    lg: 'socc-btn-lg',
   }[size];
 
-  const variantStyles = {
-    primary: 'bg-blue-600 hover:bg-blue-700 text-white focus:ring-blue-500 border border-transparent shadow-sm',
-    secondary: 'bg-slate-700 hover:bg-slate-600 text-slate-100 focus:ring-slate-500 border border-slate-600 shadow-sm',
-    danger: 'bg-rose-600 hover:bg-rose-700 text-white focus:ring-rose-500 border border-transparent shadow-sm',
-    ghost: 'bg-transparent hover:bg-slate-800 text-slate-300 hover:text-white focus:ring-slate-500 border border-transparent',
-    outline: 'bg-transparent hover:bg-slate-800 text-slate-200 border border-slate-700 focus:ring-slate-500',
-  }[variant];
+  const variantClass = `socc-btn-${variant}`;
+
+  const computedStyle: React.CSSProperties = {
+    ...variantInlineStyles[variant],
+    ...(disabled || loading ? { opacity: 0.5, cursor: 'not-allowed' } : {}),
+    ...style,
+  };
 
   return (
     <button
-      className={`${baseStyles} ${sizeStyles} ${variantStyles} ${className}`}
+      className={`${baseClass} ${sizeClass} ${variantClass} ${className}`}
       disabled={disabled || loading}
+      style={computedStyle}
       {...props}
     >
       {loading && (
@@ -42,9 +84,10 @@ export const Button: React.FC<ButtonProps> = ({
           className="animate-spin -ml-1 mr-2 h-4 w-4 text-current"
           fill="none"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <circle
-            className="opacity-25"
+            style={{ opacity: 0.25 }}
             cx="12"
             cy="12"
             r="10"
@@ -52,7 +95,7 @@ export const Button: React.FC<ButtonProps> = ({
             strokeWidth="4"
           />
           <path
-            className="opacity-75"
+            style={{ opacity: 0.75 }}
             fill="currentColor"
             d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
           />

@@ -187,8 +187,8 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
                 <Mail className="w-3 h-3 text-slate-500" />
                 {studentEmail || 'Loading...'}
               </p>
-              <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-500">
-                <span className="font-mono bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+              <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-400">
+                <span className="font-mono bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-slate-300">
                   ID: {detail?.account?.accountId || accountId}
                 </span>
                 <span>Registered: {formatDate(detail?.account?.createdAt)}</span>
@@ -198,7 +198,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
 
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
             aria-label="Close drawer"
           >
             <X className="w-5 h-5" />
@@ -271,25 +271,25 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs">
                   <div>
-                    <span className="text-slate-500 block uppercase text-[10px] font-semibold">Plan</span>
+                    <span className="text-slate-400 block uppercase text-[10px] font-semibold">Plan</span>
                     <span className="text-slate-200 font-medium text-sm mt-0.5 block">
                       {detail.entitlement?.planName || detail.entitlement?.currentPlanId || 'Free Trial'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block uppercase text-[10px] font-semibold">Access Tier</span>
+                    <span className="text-slate-400 block uppercase text-[10px] font-semibold">Access Tier</span>
                     <span className="text-slate-200 font-medium text-sm mt-0.5 block">
                       {detail.entitlement?.isPaid ? 'Paid Subscriber' : 'Trial Access'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block uppercase text-[10px] font-semibold">Expiry Date</span>
+                    <span className="text-slate-400 block uppercase text-[10px] font-semibold">Expiry Date</span>
                     <span className="text-slate-200 font-medium text-sm mt-0.5 block">
                       {detail.entitlement?.expiresAt ? formatDate(detail.entitlement.expiresAt) : 'Lifetime / None'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block uppercase text-[10px] font-semibold">Status</span>
+                    <span className="text-slate-400 block uppercase text-[10px] font-semibold">Status</span>
                     <span className="text-slate-200 font-medium text-sm mt-0.5 block capitalize">
                       {detail.entitlement?.status || 'Unknown'}
                     </span>
@@ -351,13 +351,13 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
                 <div className="flex items-center gap-2 mb-3">
                   <Shield className="w-4 h-4 text-blue-400" />
                   <h3 className="text-sm font-semibold text-white">Subscription History</h3>
-                  <span className="text-xs text-slate-500 ml-auto">
+                  <span className="text-xs text-slate-400 ml-auto">
                     {detail.subscriptions?.length || 0} Records
                   </span>
                 </div>
 
                 {(!detail.subscriptions || detail.subscriptions.length === 0) ? (
-                  <p className="text-xs text-slate-500 italic py-3 text-center">No subscription history recorded.</p>
+                  <p className="text-xs text-slate-400 italic py-3 text-center">No subscription history recorded.</p>
                 ) : (
                   <div className="space-y-2.5">
                     {detail.subscriptions.map((sub) => (
@@ -368,16 +368,16 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
                         <div>
                           <div className="flex items-center gap-2 font-medium text-slate-200">
                             <span>Plan: {sub.planId.toUpperCase()}</span>
-                            <span className="text-slate-500">•</span>
-                            <span className="capitalize text-slate-400">{sub.status}</span>
-                            <span className="text-slate-500">•</span>
+                            <span className="text-slate-400">•</span>
+                            <span className="capitalize text-slate-300">{sub.status}</span>
+                            <span className="text-slate-400">•</span>
                             <span className="text-[11px] text-slate-400">Source: {sub.source}</span>
                           </div>
-                          <p className="text-[11px] text-slate-500 mt-1">
+                          <p className="text-[11px] text-slate-400 mt-1">
                             {formatDate(sub.startDate)} → {formatDate(sub.expiryDate)}
                           </p>
                         </div>
-                        <div className="text-[11px] text-slate-400 font-mono sm:text-right">
+                        <div className="text-[11px] text-slate-300 font-mono sm:text-right">
                           Granted: {sub.grantedBy ? `${sub.grantedBy.substring(0, 8)}...` : 'System'}
                         </div>
                       </div>
@@ -391,13 +391,13 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
                 <div className="flex items-center gap-2 mb-3">
                   <CreditCard className="w-4 h-4 text-emerald-400" />
                   <h3 className="text-sm font-semibold text-white">Payment Ledger</h3>
-                  <span className="text-xs text-slate-500 ml-auto">
+                  <span className="text-xs text-slate-400 ml-auto">
                     {detail.payments?.length || 0} Transactions
                   </span>
                 </div>
 
                 {(!detail.payments || detail.payments.length === 0) ? (
-                  <p className="text-xs text-slate-500 italic py-3 text-center">No payment history.</p>
+                  <p className="text-xs text-slate-400 italic py-3 text-center">No payment history.</p>
                 ) : (
                   <div className="space-y-2.5">
                     {detail.payments.map((pmt) => (
@@ -420,13 +420,13 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
                             </Badge>
                             <span className="text-slate-400 capitalize">• {pmt.paymentMethod}</span>
                           </div>
-                          <p className="text-[11px] text-slate-500 font-mono mt-1">
+                          <p className="text-[11px] text-slate-400 font-mono mt-1">
                             Ref / UTR: {pmt.transactionReference || '—'}
                           </p>
                         </div>
-                        <div className="text-[11px] text-slate-400 sm:text-right">
+                        <div className="text-[11px] text-slate-300 sm:text-right">
                           <span>{formatDate(pmt.createdAt)}</span>
-                          <p className="text-[10px] text-slate-500 mt-0.5">Recorded: {pmt.recordedBy}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5">Recorded: {pmt.recordedBy}</p>
                         </div>
                       </div>
                     ))}
@@ -439,13 +439,13 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
                 <div className="flex items-center gap-2 mb-3">
                   <Smartphone className="w-4 h-4 text-cyan-400" />
                   <h3 className="text-sm font-semibold text-white">Devices</h3>
-                  <span className="text-xs text-slate-500 ml-auto">
+                  <span className="text-xs text-slate-400 ml-auto">
                     {detail.devices?.length || 0} Registered
                   </span>
                 </div>
 
                 {(!detail.devices || detail.devices.length === 0) ? (
-                  <p className="text-xs text-slate-500 italic py-3 text-center">No device activity recorded yet.</p>
+                  <p className="text-xs text-slate-400 italic py-3 text-center">No device activity recorded yet.</p>
                 ) : (
                   <div className="space-y-2.5">
                     {detail.devices.map((device) => {
@@ -472,35 +472,35 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
                                 device.platform === 'android' ? 'text-emerald-400'
                                 : device.platform === 'web' ? 'text-blue-400'
                                 : device.platform === 'admin' ? 'text-amber-400'
-                                : 'text-slate-500'
+                                : 'text-slate-400'
                               }`} />
                               <div>
                                 <span className="font-semibold text-slate-200">
                                   {device.deviceModel || platformLabel}
                                 </span>
                                 {device.osVersion && (
-                                  <span className="text-slate-500 ml-1.5">({device.osVersion})</span>
+                                  <span className="text-slate-400 ml-1.5">({device.osVersion})</span>
                                 )}
                               </div>
                             </div>
                             <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold flex-shrink-0 ${
                               isActive
                                 ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60'
-                                : 'bg-slate-800/80 text-slate-500 border border-slate-700'
+                                : 'bg-slate-800/80 text-slate-400 border border-slate-700'
                             }`}>
                               {isActive ? 'Active' : isRevoked ? 'Revoked' : 'Inactive'}
                             </span>
                           </div>
-                          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-500">
-                            <span>Platform: <span className="text-slate-400">{platformLabel}</span></span>
-                            <span className="font-mono truncate" title={device.deviceId}>ID: {device.deviceId}</span>
-                            <span>First seen: <span className="text-slate-400">{formatDate(device.registeredAt)}</span></span>
-                            <span>Last active: <span className="text-slate-400">{formatDate(device.lastActiveAt)}</span></span>
+                          <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-slate-400">
+                            <span>Platform: <span className="text-slate-200">{platformLabel}</span></span>
+                            <span className="font-mono truncate text-slate-300" title={device.deviceId}>ID: {device.deviceId}</span>
+                            <span>First seen: <span className="text-slate-200">{formatDate(device.registeredAt)}</span></span>
+                            <span>Last active: <span className="text-slate-200">{formatDate(device.lastActiveAt)}</span></span>
                             {device.expiresAt && (
-                              <span>Session expires: <span className="text-slate-400">{formatDate(device.expiresAt)}</span></span>
+                              <span>Session expires: <span className="text-slate-200">{formatDate(device.expiresAt)}</span></span>
                             )}
                             {device.revokedAt && (
-                              <span className="text-red-400/80">Revoked: {formatDate(device.revokedAt)}</span>
+                              <span className="text-rose-400 font-semibold">Revoked: {formatDate(device.revokedAt)}</span>
                             )}
                           </div>
                         </div>
@@ -515,13 +515,13 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
                 <div className="flex items-center gap-2 mb-3">
                   <History className="w-4 h-4 text-indigo-400" />
                   <h3 className="text-sm font-semibold text-white">Administrative Audit Log</h3>
-                  <span className="text-xs text-slate-500 ml-auto">
+                  <span className="text-xs text-slate-400 ml-auto">
                     {detail.auditLogs?.length || 0} Events
                   </span>
                 </div>
 
                 {(!detail.auditLogs || detail.auditLogs.length === 0) ? (
-                  <p className="text-xs text-slate-500 italic py-3 text-center">No administrative activity recorded.</p>
+                  <p className="text-xs text-slate-400 italic py-3 text-center">No administrative activity recorded.</p>
                 ) : (
                   <div className="space-y-2.5">
                     {detail.auditLogs.map((log) => (
@@ -533,15 +533,15 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
                           <span className="font-semibold text-blue-400 font-mono text-[11px]">
                             {log.eventType}
                           </span>
-                          <span className="text-[11px] text-slate-500">{formatDate(log.createdAt)}</span>
+                          <span className="text-[11px] text-slate-400">{formatDate(log.createdAt)}</span>
                         </div>
-                        <p className="text-slate-300 mt-1">
+                        <p className="text-slate-200 mt-1">
                           Reason:{' '}
                           {log.details && typeof log.details === 'object' && 'reason' in log.details
                             ? String(log.details.reason)
                             : 'Manual Administrative Action'}
                         </p>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-1 font-mono">
+                        <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-1 font-mono">
                           <span>Actor: {log.grantedBy || 'System'}</span>
                         </div>
                       </div>

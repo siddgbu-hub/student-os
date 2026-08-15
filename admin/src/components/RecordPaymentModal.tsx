@@ -436,17 +436,17 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs pt-1">
               <div>
-                <span className="text-slate-500 block text-[11px]">List Price</span>
+                <span className="text-slate-400 block text-[11px]">List Price</span>
                 <span className="font-mono text-slate-300">{formatINR(listPricePaise)}</span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[11px]">Discount</span>
+                <span className="text-slate-400 block text-[11px]">Discount</span>
                 <span className={`font-mono ${discountPercent > 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
                   {discountPercent > 0 ? `- ${formatINR(discountAmountPaise)} (${discountPercent}%)` : '0%'}
                 </span>
               </div>
               <div>
-                <span className="text-slate-500 block text-[11px]">Final Payable</span>
+                <span className="text-slate-400 block text-[11px]">Final Payable</span>
                 <span className="font-mono font-bold text-white text-sm">
                   {formatINR(finalAmountPaise)}
                 </span>
@@ -496,7 +496,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
           {/* SECTION 6: TRANSACTION REFERENCE */}
           <div>
             <label htmlFor="payment-ref" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-              Transaction Reference / UTR {finalAmountPaise > 0 ? <span className="text-rose-400">*</span> : <span className="text-slate-500 text-[11px] font-normal">(Optional for ₹0 purchase)</span>}
+              Transaction Reference / UTR {finalAmountPaise > 0 ? <span className="text-rose-400">*</span> : <span className="text-slate-400 text-[11px] font-normal">(Optional for ₹0 purchase)</span>}
             </label>
             <input
               id="payment-ref"
@@ -512,7 +512,7 @@ export const RecordPaymentModal: React.FC<RecordPaymentModalProps> = ({
           {/* SECTION 7: NOTES */}
           <div>
             <label htmlFor="payment-notes" className="block text-xs font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
-              Notes / Reason {discountPercent === 100 ? <span className="text-rose-400">* (Required for 100% discount)</span> : <span className="text-slate-500 text-[11px] font-normal">(Optional)</span>}
+              Notes / Reason {discountPercent === 100 ? <span className="text-rose-400">* (Required for 100% discount)</span> : <span className="text-slate-400 text-[11px] font-normal">(Optional)</span>}
             </label>
             <textarea
               id="payment-notes"
