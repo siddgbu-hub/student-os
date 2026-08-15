@@ -1,8 +1,11 @@
 export interface AccountRecord {
   account_id: string;
   email: string;
+  status?: string;
   created_at: string;
   last_login_at: string;
+  deleted_at?: string | null;
+  deleted_by?: string | null;
 }
 
 export interface VerificationRecord {

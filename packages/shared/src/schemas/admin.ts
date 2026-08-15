@@ -5,6 +5,9 @@ export const AdminRoleTypeSchema = z.enum(['owner', 'support', 'finance']);
 export const AdminPermissionSchema = z.enum([
   '*',
   'user.view',
+  'user.update',
+  'user.manage',
+  'user.delete',
   'subscription.view',
   'subscription.create',
   'subscription.update',
@@ -60,7 +63,14 @@ export const AdminOverviewSchema = z.object({
   totalRevenuePaise: z.number().int().nonnegative(),
 });
 
-export const UserStatusFilterSchema = z.enum(['trial_active', 'pro_active', 'expired', 'revoked']);
+export const UserStatusFilterSchema = z.enum([
+  'trial_active',
+  'pro_active',
+  'expired',
+  'revoked',
+  'active',
+  'suspended',
+]);
 
 export const AdminUsersQuerySchema = z.object({
   query: z.string().max(100).optional(),
@@ -80,6 +90,7 @@ export const AdminUserSummarySchema = z.object({
   accountId: z.string().uuid(),
   email: z.string().email(),
   fullName: z.string(),
+  accountStatus: z.string().default('active'),
   currentPlanId: z.string(),
   entitlementStatus: z.string(),
   isPaid: z.boolean(),
@@ -112,6 +123,22 @@ export const ChangePlanRequestSchema = z.object({
 export const RevokeSubscriptionRequestSchema = z.object({
   accountId: z.string().uuid('Valid accountId UUID is required'),
   reason: z.string().min(3, 'Reason must be at least 3 characters').max(500, 'Reason cannot exceed 500 characters'),
+});
+
+export const DeactivateAccountRequestSchema = z.object({
+  reason: z.string().max(500, 'Reason cannot exceed 500 characters').optional(),
+});
+
+export const ReactivateAccountRequestSchema = z.object({
+  reason: z.string().max(500, 'Reason cannot exceed 500 characters').optional(),
+});
+
+export const RevokeAllSessionsRequestSchema = z.object({
+  reason: z.string().max(500, 'Reason cannot exceed 500 characters').optional(),
+});
+
+export const DeleteAccountRequestSchema = z.object({
+  reason: z.string().max(500, 'Reason cannot exceed 500 characters').optional(),
 });
 
 export const RecordPaymentRequestSchema = z.object({

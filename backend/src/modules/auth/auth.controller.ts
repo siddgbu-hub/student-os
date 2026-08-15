@@ -55,6 +55,19 @@ authRouter.post('/email/send-otp', async (c) => {
         429
       );
     }
+    if (errorMessage === AUTH_ERRORS.ACCOUNT_SUSPENDED) {
+      return c.json(
+        {
+          success: false,
+          error: {
+            code: AUTH_ERRORS.ACCOUNT_SUSPENDED,
+            message: 'This student account has been suspended. Please contact support.',
+          },
+          timestamp: new Date().toISOString(),
+        },
+        403
+      );
+    }
     if (errorMessage === AUTH_ERRORS.EMAIL_DELIVERY_FAILED) {
       return c.json(
         {
@@ -130,6 +143,19 @@ authRouter.post('/email/verify-otp', async (c) => {
     });
   } catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : 'AUTH_INVALID_OTP';
+    if (errorMessage === AUTH_ERRORS.ACCOUNT_SUSPENDED) {
+      return c.json(
+        {
+          success: false,
+          error: {
+            code: AUTH_ERRORS.ACCOUNT_SUSPENDED,
+            message: 'This student account has been suspended. Please contact support.',
+          },
+          timestamp: new Date().toISOString(),
+        },
+        403
+      );
+    }
     return c.json(
       {
         success: false,
@@ -192,6 +218,19 @@ authRouter.post('/google', async (c) => {
     });
   } catch (err: unknown) {
     const rawError = err instanceof Error ? err.message : AUTH_ERRORS.INVALID_GOOGLE_TOKEN;
+    if (rawError === AUTH_ERRORS.ACCOUNT_SUSPENDED) {
+      return c.json(
+        {
+          success: false,
+          error: {
+            code: AUTH_ERRORS.ACCOUNT_SUSPENDED,
+            message: 'This student account has been suspended. Please contact support.',
+          },
+          timestamp: new Date().toISOString(),
+        },
+        403
+      );
+    }
     console.error('[GoogleAuthController] Auth processing failure:', err instanceof Error ? err.stack || err.message : String(err));
     const errorCode =
       rawError === AUTH_ERRORS.GOOGLE_EMAIL_NOT_VERIFIED

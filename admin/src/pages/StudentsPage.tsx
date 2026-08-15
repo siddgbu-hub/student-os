@@ -8,6 +8,8 @@ import {
   ChevronRight,
   Filter,
   UserCheck,
+  CheckCircle2,
+  X,
 } from 'lucide-react';
 import type { AdminUserSummaryDto, PaginationMeta, UserStatusFilter } from '@student-os/shared';
 import { adminApiClient, AdminApiError } from '../services/adminApiClient.js';
@@ -40,12 +42,20 @@ export const StudentsPage: React.FC = () => {
 
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [successToast, setSuccessToast] = useState<string | null>(null);
 
   // Drawer selection
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
   // Search debounce timer
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (successToast) {
+      const t = setTimeout(() => setSuccessToast(null), 5000);
+      return () => clearTimeout(t);
+    }
+  }, [successToast]);
 
   useEffect(() => {
     if (debounceTimerRef.current) {
@@ -111,6 +121,16 @@ export const StudentsPage: React.FC = () => {
     setPage(1);
   };
 
+  const handleDeleteSuccess = useCallback(
+    (deletedAccountId: string, message: string) => {
+      setSelectedAccountId(null);
+      setStudents((prev) => prev.filter((s) => s.accountId !== deletedAccountId));
+      setSuccessToast(message);
+      fetchStudents();
+    },
+    [fetchStudents]
+  );
+
   const formatDate = (isoString?: string | null) => {
     if (!isoString) return '—';
     try {
@@ -126,6 +146,9 @@ export const StudentsPage: React.FC = () => {
   };
 
   const getStatusBadge = (student: AdminUserSummaryDto) => {
+    if (student.accountStatus === 'suspended') {
+      return <Badge variant="danger">SUSPENDED</Badge>;
+    }
     const { entitlementStatus, isPaid } = student;
     if (entitlementStatus === 'revoked') {
       return <Badge variant="danger">REVOKED</Badge>;
@@ -147,6 +170,7 @@ export const StudentsPage: React.FC = () => {
   };
 
   const getDaysRemainingDisplay = (student: AdminUserSummaryDto) => {
+    if (student.accountStatus === 'suspended') return <span className="text-red-400 font-semibold">Suspended</span>;
     if (student.entitlementStatus === 'revoked') return '—';
     if (student.entitlementStatus === 'expired') return <span className="text-amber-400">Expired</span>;
     if (student.daysRemaining !== null && student.daysRemaining !== undefined) {
@@ -167,6 +191,22 @@ export const StudentsPage: React.FC = () => {
         title="Students"
         description="Search and manage Student OS accounts."
       />
+
+      {successToast && (
+        <div className="mb-4 p-3.5 rounded-xl bg-emerald-950/70 border border-emerald-700 text-emerald-200 text-xs flex items-center justify-between shadow-lg animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span className="font-medium">{successToast}</span>
+          </div>
+          <button
+            onClick={() => setSuccessToast(null)}
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+            aria-label="Dismiss message"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Search & Filter Toolbar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -191,6 +231,18 @@ export const StudentsPage: React.FC = () => {
             className={`filter-tab-btn ${selectedStatus === 'all' ? 'active' : ''}`}
           >
             All
+          </button>
+          <button
+            onClick={() => handleStatusChange('active')}
+            className={`filter-tab-btn ${selectedStatus === 'active' ? 'active' : ''}`}
+          >
+            Active
+          </button>
+          <button
+            onClick={() => handleStatusChange('suspended')}
+            className={`filter-tab-btn ${selectedStatus === 'suspended' ? 'active' : ''}`}
+          >
+            Suspended
           </button>
           <button
             onClick={() => handleStatusChange('pro_active')}
@@ -367,6 +419,7 @@ export const StudentsPage: React.FC = () => {
       <UserDetailDrawer
         accountId={selectedAccountId}
         onClose={() => setSelectedAccountId(null)}
+        onDeleteSuccess={handleDeleteSuccess}
       />
     </div>
   );

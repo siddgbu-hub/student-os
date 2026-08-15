@@ -24,6 +24,12 @@ export class AuthService {
       throw new Error(AUTH_ERRORS.TOO_MANY_REQUESTS);
     }
 
+    // Check if existing student account is suspended
+    const existingAccount = await this.repo.findAccountByEmail(email);
+    if (existingAccount && existingAccount.status === 'suspended') {
+      throw new Error(AUTH_ERRORS.ACCOUNT_SUSPENDED);
+    }
+
     // Invalidate previous unverified OTP requests for this email immediately
     await this.repo.invalidatePendingOtps(email, 'email_otp', timestamp);
 
@@ -96,6 +102,9 @@ export class AuthService {
       const accountId = crypto.randomUUID();
       account = await this.repo.createAccount(accountId, email, timestamp);
     } else {
+      if (account.status === 'suspended') {
+        throw new Error(AUTH_ERRORS.ACCOUNT_SUSPENDED);
+      }
       await this.repo.updateAccountLastLogin(account.account_id, timestamp);
     }
 
@@ -121,6 +130,9 @@ export class AuthService {
 
     if (account) {
       // Existing Google-linked account found
+      if (account.status === 'suspended') {
+        throw new Error(AUTH_ERRORS.ACCOUNT_SUSPENDED);
+      }
       await this.repo.updateAccountLastLogin(account.account_id, timestamp);
     } else {
       // Identity not linked yet. Check if account with verified email already exists
@@ -129,6 +141,9 @@ export class AuthService {
       if (existingAccount) {
         // Safe Account Linking: Link existing verified email account to Google identity
         account = existingAccount;
+        if (account.status === 'suspended') {
+          throw new Error(AUTH_ERRORS.ACCOUNT_SUSPENDED);
+        }
         await this.repo.createAccountIdentity(crypto.randomUUID(), account.account_id, 'google', sub, timestamp);
         await this.repo.updateAccountLastLogin(account.account_id, timestamp);
       } else {

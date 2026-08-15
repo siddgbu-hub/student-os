@@ -7,6 +7,7 @@ import { signJwt, hashString } from '../../services/crypto.service.js';
 interface MockAccount {
   account_id: string;
   email: string;
+  status?: string;
   created_at: string;
   last_login_at: string;
 }
@@ -163,13 +164,30 @@ class FullMockD1Database {
         }
         if (query.includes('FROM accounts WHERE account_id = ?')) {
           const accountId = params[0] as string;
-          return (db.accounts.get(accountId) as unknown as T) || null;
+          const acc = db.accounts.get(accountId);
+          return acc ? ({ ...acc, status: acc.status || 'active' } as unknown as T) : null;
+        }
+        if (query.includes('SELECT COUNT(*) as cnt FROM sessions WHERE account_id = ? AND revoked_at IS NULL')) {
+          const accountId = params[0] as string;
+          let cnt = 0;
+          for (const s of db.sessions.values()) {
+            if (s.account_id === accountId && s.revoked_at === null) cnt++;
+          }
+          return { cnt } as unknown as T;
+        }
+        if (query.includes('SELECT COUNT(*) as cnt FROM devices WHERE account_id = ? AND is_active = 1')) {
+          const accountId = params[0] as string;
+          let cnt = 0;
+          for (const d of db.devices.values()) {
+            if (d.account_id === accountId && d.is_active === 1) cnt++;
+          }
+          return { cnt } as unknown as T;
         }
         if (query.includes('FROM accounts WHERE LOWER(email) = LOWER(?)')) {
           const email = (params[0] as string).toLowerCase();
           for (const acc of db.accounts.values()) {
             if (acc.email.toLowerCase() === email) {
-              return acc as unknown as T;
+              return { ...acc, status: acc.status || 'active' } as unknown as T;
             }
           }
           return null;
@@ -520,6 +538,64 @@ class FullMockD1Database {
           details,
           created_at,
         });
+      } else if (query.includes('UPDATE accounts SET status = ? WHERE account_id = ?')) {
+        const [status, accountId] = params as [string, string];
+        const acc = this.accounts.get(accountId);
+        if (acc) {
+          acc.status = status;
+          this.accounts.set(accountId, acc);
+        }
+      } else if (query.includes('UPDATE sessions SET revoked_at = ? WHERE account_id = ? AND revoked_at IS NULL')) {
+        const [revokedAt, accountId] = params as [string, string];
+        for (const s of this.sessions.values()) {
+          if (s.account_id === accountId && s.revoked_at === null) {
+            s.revoked_at = revokedAt;
+          }
+        }
+      } else if (query.includes('UPDATE devices SET is_active = 0 WHERE account_id = ? AND is_active = 1')) {
+        const [accountId] = params as [string];
+        for (const d of this.devices.values()) {
+          if (d.account_id === accountId && d.is_active === 1) {
+            d.is_active = 0;
+          }
+        }
+      } else if (query.includes('DELETE FROM sessions WHERE account_id = ?')) {
+        const [accountId] = params as [string];
+        for (const [id, s] of Array.from(this.sessions.entries())) if (s.account_id === accountId) this.sessions.delete(id);
+      } else if (query.includes('DELETE FROM devices WHERE account_id = ?')) {
+        const [accountId] = params as [string];
+        for (const [id, d] of Array.from(this.devices.entries())) if (d.account_id === accountId) this.devices.delete(id);
+      } else if (query.includes('DELETE FROM payments WHERE account_id = ?')) {
+        const [accountId] = params as [string];
+        for (const [id, p] of Array.from(this.payments.entries())) if (p.account_id === accountId) this.payments.delete(id);
+      } else if (query.includes('DELETE FROM subscriptions WHERE account_id = ?')) {
+        const [accountId] = params as [string];
+        for (const [id, s] of Array.from(this.subscriptions.entries())) if (s.account_id === accountId) this.subscriptions.delete(id);
+      } else if (query.includes('DELETE FROM entitlements WHERE account_id = ?')) {
+        const [accountId] = params as [string];
+        this.entitlements.delete(accountId);
+      } else if (query.includes('DELETE FROM user_profiles WHERE account_id = ?')) {
+        const [accountId] = params as [string];
+        this.profiles.delete(accountId);
+      } else if (query.includes('DELETE FROM user_preferences WHERE account_id = ?')) {
+        // no-op
+      } else if (query.includes('DELETE FROM accounts WHERE account_id = ?')) {
+        const [accountId] = params as [string];
+        this.accounts.delete(accountId);
+      } else if (query.includes('INSERT INTO audit_logs')) {
+        const [id, account_id, event_type, details, created_at] = params as [string, string, string, string, string];
+        this.auditLogs.set(id, {
+          id,
+          account_id,
+          event_type,
+          plan_id: null as any,
+          granted_by: 'admin',
+          source: 'manual',
+          start_date: created_at,
+          expiry_date: null,
+          details,
+          created_at,
+        });
       }
     }
   }
@@ -542,18 +618,21 @@ describe('PHASE 3 — Admin REST APIs Controller Tests', () => {
     mockDb.accounts.set(OWNER_ADMIN_ID, {
       account_id: OWNER_ADMIN_ID,
       email: 'owner@studentos.com',
+      status: 'active',
       created_at: new Date().toISOString(),
       last_login_at: new Date().toISOString(),
     });
     mockDb.accounts.set(SUPPORT_ADMIN_ID, {
       account_id: SUPPORT_ADMIN_ID,
       email: 'support@studentos.com',
+      status: 'active',
       created_at: new Date().toISOString(),
       last_login_at: new Date().toISOString(),
     });
     mockDb.accounts.set(STUDENT_ID, {
       account_id: STUDENT_ID,
       email: STUDENT_EMAIL,
+      status: 'active',
       created_at: '2026-08-01T00:00:00.000Z',
       last_login_at: '2026-08-15T00:00:00.000Z',
     });
@@ -1342,6 +1421,222 @@ describe('PHASE 3 — Admin REST APIs Controller Tests', () => {
         testEnv()
       );
       expect(res.status).toBe(401);
+    });
+
+    it('30. admin can deactivate account via POST /api/v1/admin/accounts/:accountId/deactivate', async () => {
+      const app = createTestApp();
+      const headers = await createAuthHeaders(OWNER_ADMIN_ID);
+      const res = await app.request(
+        `/api/v1/admin/accounts/${STUDENT_ACCOUNT_ID}/deactivate`,
+        {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ reason: 'Administrative suspension' }),
+        },
+        testEnv()
+      );
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as any;
+      expect(json.success).toBe(true);
+      expect(json.data.accountId).toBe(STUDENT_ACCOUNT_ID);
+      expect(mockDb.accounts.get(STUDENT_ACCOUNT_ID)?.status).toBe('suspended');
+    });
+
+    it('31. non-admin user receives 403 on deactivate endpoint', async () => {
+      const app = createTestApp();
+      const studentHeaders = await createAuthHeaders(STUDENT_ACCOUNT_ID);
+      const res = await app.request(
+        `/api/v1/admin/accounts/${STUDENT_ACCOUNT_ID}/deactivate`,
+        {
+          method: 'POST',
+          headers: studentHeaders,
+          body: JSON.stringify({ reason: 'Unauthorized try' }),
+        },
+        testEnv()
+      );
+      expect(res.status).toBe(403);
+    });
+
+    it('32. admin can reactivate suspended account via POST /api/v1/admin/accounts/:accountId/reactivate', async () => {
+      const app = createTestApp();
+      const headers = await createAuthHeaders(OWNER_ADMIN_ID);
+
+      // Deactivate first
+      await app.request(
+        `/api/v1/admin/accounts/${STUDENT_ACCOUNT_ID}/deactivate`,
+        { method: 'POST', headers, body: JSON.stringify({ reason: 'Suspension' }) },
+        testEnv()
+      );
+      expect(mockDb.accounts.get(STUDENT_ACCOUNT_ID)?.status).toBe('suspended');
+
+      // Reactivate
+      const res = await app.request(
+        `/api/v1/admin/accounts/${STUDENT_ACCOUNT_ID}/reactivate`,
+        { method: 'POST', headers, body: JSON.stringify({ reason: 'Reactivation review' }) },
+        testEnv()
+      );
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as any;
+      expect(json.success).toBe(true);
+      expect(mockDb.accounts.get(STUDENT_ACCOUNT_ID)?.status).toBe('active');
+    });
+
+    it('33. admin can revoke all sessions via POST /api/v1/admin/accounts/:accountId/revoke-sessions', async () => {
+      const app = createTestApp();
+      const headers = await createAuthHeaders(OWNER_ADMIN_ID);
+      const res = await app.request(
+        `/api/v1/admin/accounts/${STUDENT_ACCOUNT_ID}/revoke-sessions`,
+        { method: 'POST', headers, body: JSON.stringify({ reason: 'Security reset' }) },
+        testEnv()
+      );
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as any;
+      expect(json.success).toBe(true);
+      // Account remains active
+      expect(mockDb.accounts.get(STUDENT_ACCOUNT_ID)?.status).toBe('active');
+    });
+
+    it('34. returns 404 ACCOUNT_NOT_FOUND when target account does not exist', async () => {
+      const app = createTestApp();
+      const headers = await createAuthHeaders(OWNER_ADMIN_ID);
+      const res = await app.request(
+        `/api/v1/admin/accounts/00000000-0000-0000-0000-999999999999/deactivate`,
+        { method: 'POST', headers, body: JSON.stringify({ reason: 'Nonexistent' }) },
+        testEnv()
+      );
+      expect(res.status).toBe(404);
+      const json = (await res.json()) as any;
+      expect(json.error.code).toBe('ACCOUNT_NOT_FOUND');
+    });
+
+    it('35. repeated deactivate is idempotent and returns 200', async () => {
+      const app = createTestApp();
+      const headers = await createAuthHeaders(OWNER_ADMIN_ID);
+      await app.request(
+        `/api/v1/admin/accounts/${STUDENT_ACCOUNT_ID}/deactivate`,
+        { method: 'POST', headers, body: JSON.stringify({ reason: 'First' }) },
+        testEnv()
+      );
+      const res2 = await app.request(
+        `/api/v1/admin/accounts/${STUDENT_ACCOUNT_ID}/deactivate`,
+        { method: 'POST', headers, body: JSON.stringify({ reason: 'Second' }) },
+        testEnv()
+      );
+      expect(res2.status).toBe(200);
+      const json = (await res2.json()) as any;
+      expect(json.success).toBe(true);
+    });
+
+    it('36. repeated reactivate is idempotent and returns 200', async () => {
+      const app = createTestApp();
+      const headers = await createAuthHeaders(OWNER_ADMIN_ID);
+      const res = await app.request(
+        `/api/v1/admin/accounts/${STUDENT_ACCOUNT_ID}/reactivate`,
+        { method: 'POST', headers, body: JSON.stringify({ reason: 'Already active' }) },
+        testEnv()
+      );
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as any;
+      expect(json.success).toBe(true);
+    });
+
+    it('37. alias routes /users/:accountId/deactivate and reactivate work equivalently', async () => {
+      const app = createTestApp();
+      const headers = await createAuthHeaders(OWNER_ADMIN_ID);
+      const resDeact = await app.request(
+        `/api/v1/admin/users/${STUDENT_ACCOUNT_ID}/deactivate`,
+        { method: 'POST', headers, body: JSON.stringify({ reason: 'Via user alias' }) },
+        testEnv()
+      );
+      expect(resDeact.status).toBe(200);
+      expect(mockDb.accounts.get(STUDENT_ACCOUNT_ID)?.status).toBe('suspended');
+
+      const resReact = await app.request(
+        `/api/v1/admin/users/${STUDENT_ACCOUNT_ID}/reactivate`,
+        { method: 'POST', headers, body: JSON.stringify({ reason: 'Via user alias' }) },
+        testEnv()
+      );
+      expect(resReact.status).toBe(200);
+      expect(mockDb.accounts.get(STUDENT_ACCOUNT_ID)?.status).toBe('active');
+    });
+
+    it('38. DELETE /api/v1/admin/accounts/:accountId permanently hard-deletes student account', async () => {
+      const app = createTestApp();
+      const headers = await createAuthHeaders(OWNER_ADMIN_ID);
+      const res = await app.request(
+        `/api/v1/admin/accounts/${STUDENT_ACCOUNT_ID}`,
+        { method: 'DELETE', headers, body: JSON.stringify({ reason: 'Student GDPR request' }) },
+        testEnv()
+      );
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as any;
+      expect(json.success).toBe(true);
+      expect(json.data.accountId).toBe(STUDENT_ACCOUNT_ID);
+      expect(mockDb.accounts.has(STUDENT_ACCOUNT_ID)).toBe(false);
+    });
+
+    it('39. DELETE /accounts/:accountId blocks self-deletion with 400 CANNOT_DELETE_CURRENT_ACCOUNT', async () => {
+      const app = createTestApp();
+      const headers = await createAuthHeaders(OWNER_ADMIN_ID);
+      const res = await app.request(
+        `/api/v1/admin/accounts/${OWNER_ADMIN_ID}`,
+        { method: 'DELETE', headers, body: JSON.stringify({ reason: 'Self deletion' }) },
+        testEnv()
+      );
+      expect(res.status).toBe(400);
+      const json = (await res.json()) as any;
+      expect(json.success).toBe(false);
+      expect(json.error.code).toBe('CANNOT_DELETE_CURRENT_ACCOUNT');
+    });
+
+    it('40. DELETE /accounts/:accountId blocks deletion of admin account with 403 CANNOT_DELETE_ADMIN_ACCOUNT', async () => {
+      const app = createTestApp();
+      const headers = await createAuthHeaders(OWNER_ADMIN_ID);
+      const res = await app.request(
+        `/api/v1/admin/accounts/${SUPPORT_ADMIN_ID}`,
+        { method: 'DELETE', headers, body: JSON.stringify({ reason: 'Admin deletion' }) },
+        testEnv()
+      );
+      expect(res.status).toBe(403);
+      const json = (await res.json()) as any;
+      expect(json.success).toBe(false);
+      expect(json.error.code).toBe('CANNOT_DELETE_ADMIN_ACCOUNT');
+    });
+
+    it('41. DELETE /accounts/:accountId returns 404 for nonexistent account', async () => {
+      const app = createTestApp();
+      const headers = await createAuthHeaders(OWNER_ADMIN_ID);
+      const res = await app.request(
+        `/api/v1/admin/accounts/nonexistent-uuid-0000`,
+        { method: 'DELETE', headers },
+        testEnv()
+      );
+      expect(res.status).toBe(404);
+      const json = (await res.json()) as any;
+      expect(json.success).toBe(false);
+      expect(json.error.code).toBe('ACCOUNT_NOT_FOUND');
+    });
+
+    it('42. DELETE alias /users/:accountId works equivalently', async () => {
+      // Seed a temporary student
+      const tempId = 'temp-student-uuid';
+      mockDb.accounts.set(tempId, {
+        account_id: tempId,
+        email: 'temp@example.com',
+        status: 'active',
+        created_at: '2026-08-01T00:00:00.000Z',
+        last_login_at: '2026-08-15T00:00:00.000Z',
+      });
+
+      const app = createTestApp();
+      const headers = await createAuthHeaders(OWNER_ADMIN_ID);
+      const res = await app.request(
+        `/api/v1/admin/users/${tempId}`,
+        { method: 'DELETE', headers },
+        testEnv()
+      );
+      expect(res.status).toBe(200);
+      expect(mockDb.accounts.has(tempId)).toBe(false);
     });
   });
 });

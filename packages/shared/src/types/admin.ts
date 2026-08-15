@@ -5,6 +5,8 @@ export type AdminRoleType = 'owner' | 'support' | 'finance';
 export type AdminPermission =
   | '*'
   | 'user.view'
+  | 'user.update'
+  | 'user.delete'
   | 'subscription.view'
   | 'subscription.create'
   | 'subscription.update'
@@ -59,12 +61,13 @@ export interface AdminOverviewDto {
   totalRevenuePaise: number;
 }
 
-export type UserStatusFilter = 'trial_active' | 'pro_active' | 'expired' | 'revoked';
+export type UserStatusFilter = 'trial_active' | 'pro_active' | 'expired' | 'revoked' | 'active' | 'suspended';
 
 export interface AdminUserSummaryDto {
   accountId: string;
   email: string;
   fullName: string;
+  accountStatus: 'active' | 'suspended' | 'deleted' | string;
   currentPlanId: string;
   entitlementStatus: string;
   isPaid: boolean;
@@ -91,8 +94,11 @@ export interface AdminUserDetailDto {
   account: {
     accountId: string;
     email: string;
+    status: 'active' | 'suspended' | 'deleted' | string;
     createdAt: string;
     lastLoginAt: string;
+    deletedAt?: string | null;
+    deletedBy?: string | null;
   };
   profile: {
     fullName: string;
@@ -118,6 +124,7 @@ export interface AdminUserDetailDto {
     revokedAt: string | null;
   }>;
   auditLogs: EntitlementAuditLogDto[];
+  adminRole?: AdminRoleDto | null;
 }
 
 export interface GrantSubscriptionRequest {
@@ -143,6 +150,22 @@ export interface ChangePlanRequest {
 export interface RevokeSubscriptionRequest {
   accountId: string;
   reason: string;
+}
+
+export interface DeactivateAccountRequest {
+  reason?: string;
+}
+
+export interface ReactivateAccountRequest {
+  reason?: string;
+}
+
+export interface RevokeAllSessionsRequest {
+  reason?: string;
+}
+
+export interface DeleteAccountRequest {
+  reason?: string;
 }
 
 export interface RecordPaymentRequest {

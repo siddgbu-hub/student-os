@@ -11,6 +11,10 @@ import {
   SUBSCRIPTION_ERRORS,
 } from './subscription-management.service.js';
 import {
+  AccountLifecycleService,
+  AccountLifecycleError,
+} from './account-lifecycle.service.js';
+import {
   AdminUsersQuerySchema,
   GrantSubscriptionRequestSchema,
   ExtendSubscriptionRequestSchema,
@@ -20,6 +24,10 @@ import {
   AdminPaymentsQuerySchema,
   AdminAuditLogsQuerySchema,
   UpdatePaymentConfigSchema,
+  DeactivateAccountRequestSchema,
+  ReactivateAccountRequestSchema,
+  RevokeAllSessionsRequestSchema,
+  DeleteAccountRequestSchema,
 } from '@student-os/shared';
 
 export const adminRouter = new Hono<{
@@ -31,6 +39,28 @@ export const adminRouter = new Hono<{
 adminRouter.use('*', createAuthMiddleware);
 
 function handleAdminError(err: unknown, c: Context): Response {
+  if (err instanceof AccountLifecycleError) {
+    let statusCode = 400;
+    if (err.code === 'ACCOUNT_NOT_FOUND') {
+      statusCode = 404;
+    } else if (err.code === 'CANNOT_DELETE_ADMIN_ACCOUNT') {
+      statusCode = 403;
+    } else if (err.code === 'CANNOT_DELETE_CURRENT_ACCOUNT') {
+      statusCode = 400;
+    }
+    return c.json(
+      {
+        success: false,
+        error: {
+          code: err.code,
+          message: err.message.includes(': ') ? err.message.split(': ').slice(1).join(': ') : err.message,
+        },
+        timestamp: new Date().toISOString(),
+      },
+      statusCode as any
+    );
+  }
+
   if (err instanceof SubscriptionDomainError) {
     let statusCode = 400;
     if (err.code === SUBSCRIPTION_ERRORS.ACCOUNT_NOT_FOUND) {
@@ -493,3 +523,144 @@ adminRouter.post('/payment/config', requireAdminPermission('config.update'), asy
 
   return c.json({ success: true, data: updated }, 200);
 });
+
+// ----------------------------------------------------
+// I. Account Lifecycle Management
+// ----------------------------------------------------
+
+async function handleDeactivateAccount(c: Context<{ Bindings: Env; Variables: AdminContextVariables }>) {
+  const accountId = c.req.param('accountId') || c.req.param('id');
+  if (!accountId) {
+    return c.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'accountId parameter is required' } }, 400);
+  }
+
+  const adminAccountId = c.get('accountId');
+  let reason: string | undefined;
+  try {
+    const raw = await c.req.json();
+    const parsed = DeactivateAccountRequestSchema.safeParse(raw);
+    if (parsed.success) reason = parsed.data.reason;
+  } catch {
+    // empty or non-JSON body is acceptable
+  }
+
+  const service = new AccountLifecycleService(c.env.DB);
+  try {
+    const result = await service.deactivateAccount({
+      accountId,
+      adminAccountId,
+      reason,
+      ipAddress: c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for'),
+      userAgent: c.req.header('user-agent'),
+    });
+    return c.json({ success: true, data: result }, 200);
+  } catch (err: unknown) {
+    return handleAdminError(err, c);
+  }
+}
+
+async function handleReactivateAccount(c: Context<{ Bindings: Env; Variables: AdminContextVariables }>) {
+  const accountId = c.req.param('accountId') || c.req.param('id');
+  if (!accountId) {
+    return c.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'accountId parameter is required' } }, 400);
+  }
+
+  const adminAccountId = c.get('accountId');
+  let reason: string | undefined;
+  try {
+    const raw = await c.req.json();
+    const parsed = ReactivateAccountRequestSchema.safeParse(raw);
+    if (parsed.success) reason = parsed.data.reason;
+  } catch {
+    // empty or non-JSON body is acceptable
+  }
+
+  const service = new AccountLifecycleService(c.env.DB);
+  try {
+    const result = await service.reactivateAccount({
+      accountId,
+      adminAccountId,
+      reason,
+      ipAddress: c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for'),
+      userAgent: c.req.header('user-agent'),
+    });
+    return c.json({ success: true, data: result }, 200);
+  } catch (err: unknown) {
+    return handleAdminError(err, c);
+  }
+}
+
+async function handleRevokeAllSessions(c: Context<{ Bindings: Env; Variables: AdminContextVariables }>) {
+  const accountId = c.req.param('accountId') || c.req.param('id');
+  if (!accountId) {
+    return c.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'accountId parameter is required' } }, 400);
+  }
+
+  const adminAccountId = c.get('accountId');
+  let reason: string | undefined;
+  try {
+    const raw = await c.req.json();
+    const parsed = RevokeAllSessionsRequestSchema.safeParse(raw);
+    if (parsed.success) reason = parsed.data.reason;
+  } catch {
+    // empty or non-JSON body is acceptable
+  }
+
+  const service = new AccountLifecycleService(c.env.DB);
+  try {
+    const result = await service.revokeAllSessions({
+      accountId,
+      adminAccountId,
+      reason,
+      ipAddress: c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for'),
+      userAgent: c.req.header('user-agent'),
+    });
+    return c.json({ success: true, data: result }, 200);
+  } catch (err: unknown) {
+    return handleAdminError(err, c);
+  }
+}
+
+async function handleDeleteAccount(c: Context<{ Bindings: Env; Variables: AdminContextVariables }>) {
+  const accountId = c.req.param('accountId') || c.req.param('id');
+  if (!accountId) {
+    return c.json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'accountId parameter is required' } }, 400);
+  }
+
+  const adminAccountId = c.get('accountId');
+  let reason: string | undefined;
+  try {
+    const raw = await c.req.json();
+    const parsed = DeleteAccountRequestSchema.safeParse(raw);
+    if (parsed.success) reason = parsed.data.reason;
+  } catch {
+    // empty or non-JSON body is acceptable
+  }
+
+  const service = new AccountLifecycleService(c.env.DB);
+  try {
+    const result = await service.deleteAccount({
+      accountId,
+      adminAccountId,
+      reason,
+      ipAddress: c.req.header('cf-connecting-ip') || c.req.header('x-forwarded-for'),
+      userAgent: c.req.header('user-agent'),
+    });
+    return c.json({ success: true, data: result }, 200);
+  } catch (err: unknown) {
+    return handleAdminError(err, c);
+  }
+}
+
+// Routes registered with both /accounts/:accountId and /users/:accountId path structures
+adminRouter.post('/accounts/:accountId/deactivate', requireAdminPermission('user.update'), handleDeactivateAccount);
+adminRouter.post('/accounts/:accountId/reactivate', requireAdminPermission('user.update'), handleReactivateAccount);
+adminRouter.post('/accounts/:accountId/revoke-sessions', requireAdminPermission('user.update'), handleRevokeAllSessions);
+adminRouter.delete('/accounts/:accountId', requireAdminPermission('user.delete'), handleDeleteAccount);
+
+adminRouter.post('/users/:accountId/deactivate', requireAdminPermission('user.update'), handleDeactivateAccount);
+adminRouter.post('/users/:accountId/reactivate', requireAdminPermission('user.update'), handleReactivateAccount);
+adminRouter.post('/users/:accountId/revoke-sessions', requireAdminPermission('user.update'), handleRevokeAllSessions);
+adminRouter.delete('/users/:accountId', requireAdminPermission('user.delete'), handleDeleteAccount);
+
+

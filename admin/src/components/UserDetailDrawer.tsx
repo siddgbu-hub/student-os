@@ -30,13 +30,19 @@ import { GrantSubscriptionModal } from './GrantSubscriptionModal.js';
 import { ExtendSubscriptionModal } from './ExtendSubscriptionModal.js';
 import { ChangePlanModal } from './ChangePlanModal.js';
 import { RevokeSubscriptionModal } from './RevokeSubscriptionModal.js';
+import { DeactivateAccountModal } from './DeactivateAccountModal.js';
+import { ReactivateAccountModal } from './ReactivateAccountModal.js';
+import { RevokeAllSessionsModal } from './RevokeAllSessionsModal.js';
+import { DeleteAccountModal } from './DeleteAccountModal.js';
+import { UserX, UserCheck, LogOut, Trash2, AlertTriangle } from 'lucide-react';
 
 export interface UserDetailDrawerProps {
   accountId: string | null;
   onClose: () => void;
+  onDeleteSuccess?: (deletedAccountId: string, message: string) => void;
 }
 
-export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, onClose }) => {
+export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, onClose, onDeleteSuccess }) => {
   const [detail, setDetail] = useState<AdminUserDetailDto | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,6 +54,10 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
   const [extendModalOpen, setExtendModalOpen] = useState<boolean>(false);
   const [changePlanModalOpen, setChangePlanModalOpen] = useState<boolean>(false);
   const [revokeModalOpen, setRevokeModalOpen] = useState<boolean>(false);
+  const [deactivateModalOpen, setDeactivateModalOpen] = useState<boolean>(false);
+  const [reactivateModalOpen, setReactivateModalOpen] = useState<boolean>(false);
+  const [revokeSessionsModalOpen, setRevokeSessionsModalOpen] = useState<boolean>(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState<boolean>(false);
 
   const fetchDetail = useCallback(async (id: string, isPostMutation = false) => {
     if (!isPostMutation) {
@@ -91,7 +101,15 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
 
   // Keyboard accessibility: ESC to close drawer when no modals are open
   useEffect(() => {
-    const isAnyModalOpen = grantModalOpen || extendModalOpen || changePlanModalOpen || revokeModalOpen;
+    const isAnyModalOpen =
+      grantModalOpen ||
+      extendModalOpen ||
+      changePlanModalOpen ||
+      revokeModalOpen ||
+      deactivateModalOpen ||
+      reactivateModalOpen ||
+      revokeSessionsModalOpen ||
+      deleteModalOpen;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && accountId && !isAnyModalOpen) {
         onClose();
@@ -99,7 +117,18 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [accountId, onClose, grantModalOpen, extendModalOpen, changePlanModalOpen, revokeModalOpen]);
+  }, [
+    accountId,
+    onClose,
+    grantModalOpen,
+    extendModalOpen,
+    changePlanModalOpen,
+    revokeModalOpen,
+    deactivateModalOpen,
+    reactivateModalOpen,
+    revokeSessionsModalOpen,
+    deleteModalOpen,
+  ]);
 
   if (!accountId) return null;
 
@@ -181,6 +210,9 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
                 <h2 id="drawer-title" className="text-lg font-bold text-white tracking-tight">
                   {studentName}
                 </h2>
+                {detail?.account?.status === 'suspended' && (
+                  <Badge variant="danger">SUSPENDED</Badge>
+                )}
                 {getEntitlementBadge()}
               </div>
               <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1.5 font-mono">
@@ -549,6 +581,74 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
                   </div>
                 )}
               </div>
+
+              {/* SECTION 7: DANGER ZONE & ACCOUNT LIFECYCLE */}
+              <div className="bg-slate-950 border border-red-950/70 rounded-xl p-5 shadow-sm">
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800/80">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-400" />
+                    <h3 className="text-sm font-semibold text-white">Danger Zone</h3>
+                  </div>
+                  <span className="text-[11px] text-red-400/80 font-medium">Account Lifecycle</span>
+                </div>
+
+                <div className="space-y-3 text-xs">
+                  <p className="text-slate-400 text-xs">
+                    Administrative lifecycle actions for this student. Deactivation revokes active sessions and disables sign-in while safely preserving all historical data.
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setRevokeSessionsModalOpen(true)}
+                      className="text-xs border-amber-800/50 hover:bg-amber-950/30 text-amber-300"
+                    >
+                      <LogOut className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
+                      Revoke All Sessions
+                    </Button>
+
+                    {detail.account?.status === 'suspended' ? (
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => setReactivateModalOpen(true)}
+                        className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white"
+                      >
+                        <UserCheck className="w-3.5 h-3.5 mr-1.5" />
+                        Reactivate Account
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => setDeactivateModalOpen(true)}
+                        className="text-xs bg-red-600 hover:bg-red-500 text-white"
+                      >
+                        <UserX className="w-3.5 h-3.5 mr-1.5" />
+                        Deactivate Account
+                      </Button>
+                    )}
+
+                    {detail.adminRole ? (
+                      <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-amber-950/40 border border-amber-800/60 text-amber-300 text-xs">
+                        <ShieldAlert className="w-4 h-4 shrink-0 text-amber-400" />
+                        <span>Privileged {detail.adminRole.role.toUpperCase()} account — permanent deletion is disabled.</span>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => setDeleteModalOpen(true)}
+                        className="text-xs bg-red-800 hover:bg-red-700 text-white border border-red-600/60 shadow-lg shadow-red-950/80 font-semibold"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                        Delete Account Permanently
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
             </>
           )}
         </div>
@@ -597,6 +697,49 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
         currentExpiresAt={currentExpiresAt}
         onClose={() => setRevokeModalOpen(false)}
         onSuccess={handleMutationSuccess}
+      />
+
+      {/* ACCOUNT LIFECYCLE MODALS */}
+      <DeactivateAccountModal
+        isOpen={deactivateModalOpen}
+        accountId={accountId}
+        studentName={studentName}
+        studentEmail={studentEmail}
+        onClose={() => setDeactivateModalOpen(false)}
+        onSuccess={handleMutationSuccess}
+      />
+
+      <ReactivateAccountModal
+        isOpen={reactivateModalOpen}
+        accountId={accountId}
+        studentName={studentName}
+        studentEmail={studentEmail}
+        onClose={() => setReactivateModalOpen(false)}
+        onSuccess={handleMutationSuccess}
+      />
+
+      <RevokeAllSessionsModal
+        isOpen={revokeSessionsModalOpen}
+        accountId={accountId}
+        studentName={studentName}
+        studentEmail={studentEmail}
+        onClose={() => setRevokeSessionsModalOpen(false)}
+        onSuccess={handleMutationSuccess}
+      />
+
+      <DeleteAccountModal
+        isOpen={deleteModalOpen}
+        accountId={accountId}
+        studentName={studentName}
+        studentEmail={studentEmail}
+        onClose={() => setDeleteModalOpen(false)}
+        onSuccess={(id, msg) => {
+          if (onDeleteSuccess) {
+            onDeleteSuccess(id, msg);
+          } else {
+            onClose();
+          }
+        }}
       />
     </div>
   );

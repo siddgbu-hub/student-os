@@ -104,6 +104,7 @@ const mockStudents: AdminUserSummaryDto[] = [
     accountId: 'acc-1',
     email: 'rahul.sharma@example.com',
     fullName: 'Rahul Sharma',
+    accountStatus: 'active',
     currentPlanId: 'monthly',
     entitlementStatus: 'active',
     isPaid: true,

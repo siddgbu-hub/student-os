@@ -435,4 +435,60 @@ describe('AuthService — Cryptographic Google Sign-In', () => {
     expect(profile).toBeDefined();
     expect(profile?.full_name).toBe('Student');
   });
+
+  describe('Account Lifecycle & Suspension Rejections', () => {
+    it('12. sendOtp throws AUTH_ACCOUNT_SUSPENDED when target student account is suspended', async () => {
+      const timestamp = new Date().toISOString();
+      mockRepo.accounts.push({
+        account_id: 'suspended-student-1',
+        email: 'suspended@example.com',
+        status: 'suspended',
+        created_at: timestamp,
+        last_login_at: timestamp,
+      });
+
+      await expect(authService.sendOtp('suspended@example.com')).rejects.toThrow(AUTH_ERRORS.ACCOUNT_SUSPENDED);
+    });
+
+    it('13. verifyOtp throws AUTH_ACCOUNT_SUSPENDED when target student account is suspended', async () => {
+      const timestamp = new Date().toISOString();
+      const expiresAt = new Date(Date.now() + 300000).toISOString();
+      const tokenHash = await hashString('123456');
+
+      mockRepo.accounts.push({
+        account_id: 'suspended-student-2',
+        email: 'suspended2@example.com',
+        status: 'suspended',
+        created_at: timestamp,
+        last_login_at: timestamp,
+      });
+
+      mockRepo.verifications.push({
+        id: 'ver-susp-1',
+        target: 'suspended2@example.com',
+        purpose: 'email_otp',
+        token_hash: tokenHash,
+        expires_at: expiresAt,
+        created_at: timestamp,
+        verified_at: null,
+      });
+
+      await expect(authService.verifyOtp('suspended2@example.com', '123456')).rejects.toThrow(AUTH_ERRORS.ACCOUNT_SUSPENDED);
+    });
+
+    it('14. authenticateGoogle throws AUTH_ACCOUNT_SUSPENDED when linked Google account is suspended', async () => {
+      const timestamp = new Date().toISOString();
+      const acc = await mockRepo.createAccount('suspended-google-acc', 'suspendedgoogle@example.com', timestamp);
+      acc.status = 'suspended';
+      await mockRepo.createAccountIdentity('ident-susp-1', acc.account_id, 'google', 'google-sub-suspended', timestamp);
+
+      vi.spyOn(mockJwksService, 'verifyIdToken').mockResolvedValue({
+        sub: 'google-sub-suspended',
+        email: 'suspendedgoogle@example.com',
+        email_verified: true,
+      });
+
+      await expect(authService.authenticateGoogle('valid-token-suspended')).rejects.toThrow(AUTH_ERRORS.ACCOUNT_SUSPENDED);
+    });
+  });
 });

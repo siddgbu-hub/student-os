@@ -119,6 +119,13 @@ export class AdminApiClient {
     });
   }
 
+  async delete<T>(endpoint: string, body?: unknown): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'DELETE',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  }
+
   // Auth OTP Endpoints
   async sendEmailOtp(email: string): Promise<{ success: boolean; message: string }> {
     return this.post('/api/v1/auth/email/send-otp', { email });
@@ -215,6 +222,35 @@ export class AdminApiClient {
     accountId?: string;
   }): Promise<{ success: boolean; data: EntitlementAuditLogDto[]; pagination: PaginationMeta }> {
     return this.get('/api/v1/admin/audit-logs', query);
+  }
+
+  // Account Lifecycle Management Endpoints
+  async deactivateAccount(
+    accountId: string,
+    reason?: string
+  ): Promise<{ success: boolean; data: { message: string; accountId: string; revokedSessionsCount?: number } }> {
+    return this.post(`/api/v1/admin/accounts/${accountId}/deactivate`, { reason });
+  }
+
+  async reactivateAccount(
+    accountId: string,
+    reason?: string
+  ): Promise<{ success: boolean; data: { message: string; accountId: string } }> {
+    return this.post(`/api/v1/admin/accounts/${accountId}/reactivate`, { reason });
+  }
+
+  async revokeAllSessions(
+    accountId: string,
+    reason?: string
+  ): Promise<{ success: boolean; data: { message: string; accountId: string; revokedSessionsCount?: number } }> {
+    return this.post(`/api/v1/admin/accounts/${accountId}/revoke-sessions`, { reason });
+  }
+
+  async deleteAccount(
+    accountId: string,
+    reason?: string
+  ): Promise<{ success: boolean; data: { message: string; accountId: string } }> {
+    return this.delete(`/api/v1/admin/accounts/${accountId}`, { reason });
   }
 }
 

@@ -346,7 +346,11 @@ export class AdminRepository {
     }
 
     if (params.status) {
-      if (params.status === 'trial_active') {
+      if (params.status === 'active') {
+        whereClauses.push("(COALESCE(a.status, 'active') = 'active')");
+      } else if (params.status === 'suspended') {
+        whereClauses.push("(a.status = 'suspended')");
+      } else if (params.status === 'trial_active') {
         whereClauses.push("(e.status = 'active' AND (e.is_paid = 0 OR e.current_plan_id = 'free_trial'))");
       } else if (params.status === 'pro_active') {
         whereClauses.push("(e.status = 'active' AND e.is_paid = 1 AND e.current_plan_id IN ('monthly', 'yearly'))");
@@ -372,12 +376,13 @@ export class AdminRepository {
     const total = countRow?.total || 0;
     const totalPages = Math.ceil(total / limit) || 1;
 
-    // 2. Data Query — includes device count subquery
+    // 2. Data Query — includes device count subquery and lifecycle status
     const dataSql = `
       SELECT
         a.account_id,
         a.email,
         p.full_name,
+        COALESCE(a.status, 'active') as account_status,
         e.current_plan_id,
         e.status as entitlement_status,
         e.is_paid,
@@ -395,7 +400,19 @@ export class AdminRepository {
 
     const dataBindings = [...bindings, limit, offset];
     const dataStmt = this.db.prepare(dataSql).bind(...dataBindings);
-    const result = await dataStmt.all<UserSummaryRow>();
+    const result = await dataStmt.all<{
+      account_id: string;
+      email: string;
+      full_name: string | null;
+      account_status: string;
+      current_plan_id: string | null;
+      entitlement_status: string | null;
+      is_paid: number | null;
+      expires_at: string | null;
+      created_at: string;
+      last_login_at: string;
+      device_count: number;
+    }>();
 
     const nowMs = Date.now();
     const data: AdminUserSummaryDto[] = (result.results || []).map((row) => {
@@ -409,6 +426,7 @@ export class AdminRepository {
         accountId: row.account_id,
         email: row.email,
         fullName: row.full_name || 'Student',
+        accountStatus: row.account_status || 'active',
         currentPlanId: row.current_plan_id || 'free_trial',
         entitlementStatus: row.entitlement_status || 'active',
         isPaid: row.is_paid === 1,
@@ -435,8 +453,8 @@ export class AdminRepository {
    * 3. Complete User Detail Query
    */
   async getUserDetail(accountId: string): Promise<AdminUserDetailDto | null> {
-    const accountStmt = this.db.prepare('SELECT account_id, email, created_at, last_login_at FROM accounts WHERE account_id = ?').bind(accountId);
-    const account = await accountStmt.first<{ account_id: string; email: string; created_at: string; last_login_at: string }>();
+    const accountStmt = this.db.prepare('SELECT account_id, email, COALESCE(status, \'active\') as status, created_at, last_login_at, deleted_at, deleted_by FROM accounts WHERE account_id = ?').bind(accountId);
+    const account = await accountStmt.first<{ account_id: string; email: string; status: string; created_at: string; last_login_at: string; deleted_at?: string | null; deleted_by?: string | null }>();
     if (!account) return null;
 
     const profileStmt = this.db.prepare('SELECT full_name, avatar_url, institution_name, course, class_year, stream, examination_type FROM user_profiles WHERE account_id = ?').bind(accountId);
@@ -477,8 +495,9 @@ export class AdminRepository {
       ORDER BY d.last_active_at DESC
     `).bind(accountId, accountId);
     const auditStmt = this.db.prepare('SELECT * FROM entitlement_audit_logs WHERE account_id = ? ORDER BY created_at DESC').bind(accountId);
+    const adminRoleStmt = this.db.prepare('SELECT * FROM admin_roles WHERE account_id = ?').bind(accountId);
 
-    const [profile, entRow, subsResult, paymentsResult, devicesResult, auditResult] = await Promise.all([
+    const [profile, entRow, subsResult, paymentsResult, devicesResult, auditResult, adminRoleRow] = await Promise.all([
       profileStmt.first<{
         full_name: string;
         avatar_url: string | null;
@@ -502,7 +521,27 @@ export class AdminRepository {
         session_revoked_at: string | null;
       }>(),
       auditStmt.all<any>(),
+      adminRoleStmt.first<{
+        account_id: string;
+        role: AdminRoleType;
+        permissions: string;
+        granted_by: string | null;
+        created_at: string;
+        updated_at: string;
+      }>(),
     ]);
+
+    let adminRole: AdminRoleDto | null = null;
+    if (adminRoleRow) {
+      adminRole = {
+        accountId: adminRoleRow.account_id,
+        role: adminRoleRow.role,
+        permissions: JSON.parse(adminRoleRow.permissions || '[]'),
+        grantedBy: adminRoleRow.granted_by,
+        createdAt: adminRoleRow.created_at,
+        updatedAt: adminRoleRow.updated_at,
+      };
+    }
 
     let entitlement: EntitlementDto | null = null;
     if (entRow) {
@@ -588,8 +627,11 @@ export class AdminRepository {
       account: {
         accountId: account.account_id,
         email: account.email,
+        status: account.status || 'active',
         createdAt: account.created_at,
         lastLoginAt: account.last_login_at,
+        deletedAt: account.deleted_at || null,
+        deletedBy: account.deleted_by || null,
       },
       profile: profile
         ? {
@@ -607,6 +649,7 @@ export class AdminRepository {
       payments,
       devices,
       auditLogs,
+      adminRole,
     };
   }
 

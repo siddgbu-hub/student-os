@@ -12,6 +12,7 @@ const mockDetail: AdminUserDetailDto = {
   account: {
     accountId: 'student-acc-123',
     email: 'student@example.com',
+    status: 'active',
     createdAt: '2026-01-01T00:00:00.000Z',
     lastLoginAt: '2026-08-15T00:00:00.000Z',
   },

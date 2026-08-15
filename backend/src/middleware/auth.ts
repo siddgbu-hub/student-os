@@ -76,6 +76,22 @@ export async function createAuthMiddleware(c: Context, next: Next) {
     );
   }
 
+  // Step 4: Account Lifecycle Status Validation
+  const account = await repo.findAccountById(sessionPayload.accountId);
+  if (account && account.status === 'suspended') {
+    return c.json(
+      {
+        success: false,
+        error: {
+          code: 'AUTH_ACCOUNT_SUSPENDED',
+          message: 'This student account has been suspended. Please contact support.',
+        },
+        timestamp: new Date().toISOString(),
+      },
+      403
+    );
+  }
+
   // Attach variables to Hono context
   c.set('accountId', sessionPayload.accountId);
   c.set('sessionId', sessionPayload.sessionId);
