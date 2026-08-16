@@ -128,23 +128,25 @@ object AlarmScheduler {
     fun scheduleStudyBreakReminder(
         context: Context,
         sessionId: String,
+        remainingSeconds: Int,
         intervalMinutes: Int,
         preferences: UserPreferencesDto?
     ) {
         val notificationsEnabled = preferences?.notificationsEnabled ?: true
-        if (!notificationsEnabled || intervalMinutes <= 0) {
+        if (!notificationsEnabled || intervalMinutes <= 0 || remainingSeconds <= 0) {
             cancelStudyBreakReminder(context, sessionId)
             return
         }
 
         try {
-            val triggerEpochMs = System.currentTimeMillis() + (intervalMinutes * 60 * 1000L)
+            val triggerEpochMs = System.currentTimeMillis() + (remainingSeconds * 1000L)
 
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
             val intent = Intent(context, AlarmReceiver::class.java).apply {
                 putExtra(AlarmReceiver.EXTRA_TYPE, "study_break")
                 putExtra(AlarmReceiver.EXTRA_ENTITY_ID, sessionId)
                 putExtra(AlarmReceiver.EXTRA_INTERVAL_MINS, intervalMinutes)
+                putExtra(AlarmReceiver.EXTRA_EXPECTED_RUNNING_SECS, intervalMinutes * 60)
             }
 
             val requestCode = NotificationHelper.generateNotificationId("study_break", sessionId)

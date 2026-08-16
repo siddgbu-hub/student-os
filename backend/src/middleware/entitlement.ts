@@ -22,15 +22,19 @@ export function requireEntitlement(requiredFeature: string) {
     const entitlement = await service.getEntitlement(accountId);
 
     if (entitlement.status !== 'active' || !entitlement.features.includes(requiredFeature)) {
+      const isPaidPlan = entitlement.isPaid || (entitlement.currentPlanId !== 'free_trial' && entitlement.currentPlanId !== 'free');
+      const errorCode = !isPaidPlan && entitlement.status === 'expired' ? 'TRIAL_EXPIRED' : 'SUBSCRIPTION_REQUIRED';
+      const errorMessage =
+        !isPaidPlan && entitlement.status === 'expired'
+          ? 'Your 7-day free trial has ended. Upgrade to Student OS Pro to continue full access.'
+          : `Feature '${requiredFeature}' requires active subscription access.`;
+
       return c.json(
         {
           success: false,
           error: {
-            code: entitlement.status === 'expired' ? 'TRIAL_EXPIRED' : 'SUBSCRIPTION_REQUIRED',
-            message:
-              entitlement.status === 'expired'
-                ? 'Your 7-day free trial has ended. Upgrade to Student OS Pro to continue full access.'
-                : `Feature '${requiredFeature}' requires active subscription access.`,
+            code: errorCode,
+            message: errorMessage,
             requiredFeature,
             currentPlan: entitlement.currentPlanId,
             status: entitlement.status,
@@ -64,15 +68,18 @@ export function requireActiveSubscription() {
     const entitlement = await service.getEntitlement(accountId);
 
     if (entitlement.status !== 'active') {
+      const isPaidPlan = entitlement.isPaid || (entitlement.currentPlanId !== 'free_trial' && entitlement.currentPlanId !== 'free');
+      const errorCode = isPaidPlan ? 'SUBSCRIPTION_REQUIRED' : 'TRIAL_EXPIRED';
+      const errorMessage = isPaidPlan
+        ? 'Your subscription has ended. Renew your Student OS subscription to continue full access.'
+        : 'Your 7-day free trial has ended. Upgrade to Student OS Pro to continue full access.';
+
       return c.json(
         {
           success: false,
           error: {
-            code: entitlement.status === 'expired' ? 'TRIAL_EXPIRED' : 'SUBSCRIPTION_REQUIRED',
-            message:
-              entitlement.status === 'expired'
-                ? 'Your 7-day free trial has ended. Upgrade to Student OS Pro to continue full access.'
-                : 'Active subscription or trial required to access this resource.',
+            code: errorCode,
+            message: errorMessage,
             currentPlan: entitlement.currentPlanId,
             status: entitlement.status,
           },

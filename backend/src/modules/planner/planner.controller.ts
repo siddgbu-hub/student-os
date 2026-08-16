@@ -1,5 +1,6 @@
 import { Hono, Context } from 'hono';
 import { createAuthMiddleware } from '../../middleware/auth.js';
+import { requireActiveSubscription } from '../../middleware/entitlement.js';
 import { PlannerRepository } from '../../db/planner.repository.js';
 import { StudyRepository } from '../../db/study.repository.js';
 import { PlannerService } from './planner.service.js';
@@ -12,8 +13,8 @@ import type { Env } from '../../index.js';
 
 export const plannerRouter = new Hono<{ Bindings: Env; Variables: { accountId: string; sessionId: string; deviceId: string } }>();
 
-// Protect all Planner routes with Auth Middleware
-plannerRouter.use('*', createAuthMiddleware);
+// Protect all Planner routes with Auth and Entitlement Middleware
+plannerRouter.use('*', createAuthMiddleware, requireActiveSubscription());
 
 type PlannerContext = Context<{ Bindings: Env; Variables: { accountId: string; sessionId: string; deviceId: string } }>;
 

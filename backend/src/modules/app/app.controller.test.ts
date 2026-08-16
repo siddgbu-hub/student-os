@@ -14,8 +14,8 @@ describe('App Version Controller — GET /api/v1/app/version/android', () => {
     expect(body.success).toBe(true);
     expect(body.data).toBeDefined();
     expect(body.data.platform).toBe('android');
-    expect(body.data.latestVersionCode).toBe(3);
-    expect(body.data.latestVersionName).toBe('1.0.2');
+    expect(body.data.latestVersionCode).toBe(4);
+    expect(body.data.latestVersionName).toBe('1.0.3');
     expect(body.data.minimumSupportedVersionCode).toBe(1);
     expect(typeof body.data.updateRequired).toBe('boolean');
     expect(typeof body.data.releaseTitle).toBe('string');
@@ -38,6 +38,6 @@ describe('App Version Controller — GET /api/v1/app/version/android', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.success).toBe(true);
-    expect(body.data.latestVersionCode).toBe(3);
+    expect(body.data.latestVersionCode).toBe(4);
   });
 });

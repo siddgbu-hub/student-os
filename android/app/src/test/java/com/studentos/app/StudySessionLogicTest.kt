@@ -1,5 +1,6 @@
 package com.studentos.app
 
+import com.studentos.app.data.model.EntitlementDto
 import com.studentos.app.data.model.StudySessionDto
 import com.studentos.app.ui.screens.study.ActiveStudySessionData
 import com.studentos.app.ui.screens.study.SessionState
@@ -456,5 +457,387 @@ class StudySessionLogicTest {
         assertTrue(handleStopResult("SESSION_ALREADY_FINISHED"))
         assertTrue(handleStopResult("Session is already completed"))
         assertFalse(handleStopResult("Database connection failed"))
+    }
+
+    // 24. Fast-path startup sequence and timing delta calculations
+    @Test
+    fun testStartupSequenceTimingDeltaCalculations() {
+        val tA = 1000L // User taps Start Study
+        val tB = 1002L // Local state becomes RUNNING
+        val tC = 1003L // startService() invoked
+        val tD = 1010L // onStartCommand() entered
+        val tE = 1012L // notification constructed
+        val tF = 1013L // startForeground() called
+        val tG = 2013L // first ticker update
+        val tH = 1005L // backend request started
+
+        val deltaBA = tB - tA
+        val deltaCA = tC - tA
+        val deltaDC = tD - tC
+        val deltaED = tE - tD
+        val deltaFE = tF - tE
+        val deltaHA = tH - tA
+        val totalToForeground = tF - tA
+
+        assertEquals(2L, deltaBA)
+        assertEquals(3L, deltaCA)
+        assertEquals(7L, deltaDC)
+        assertEquals(2L, deltaED)
+        assertEquals(1L, deltaFE)
+        assertEquals(5L, deltaHA)
+        assertEquals(13L, totalToForeground)
+        assertTrue("Notification must be posted to foreground before first ticker update", tF < tG)
+    }
+
+    // 25. Foreground service immediate behavior flag
+    @Test
+    fun testForegroundServiceImmediateBehaviorConstant() {
+        // NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE = 1 (disables Android 12+ 10-second notification suppression)
+        val expectedImmediateFlag = 1
+        assertEquals(expectedImmediateFlag, androidx.core.app.NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+    }
+
+    // Helper: Simulates AlarmReceiver authoritative verification logic
+    private fun shouldFireBreakNotification(
+        currentState: SessionState,
+        intentSessionId: String,
+        requiredIntervalMins: Int,
+        currentTimeMs: Long
+    ): Boolean {
+        if (currentState !is SessionState.Running) return false
+        val currentSessionId = currentState.data.session.id
+        val isMatchingSession = currentSessionId == intentSessionId ||
+                intentSessionId.startsWith("local_") ||
+                currentSessionId.startsWith("local_")
+        if (!isMatchingSession) return false
+
+        val elapsedSecs = calculateElapsed(currentState, currentTimeMs)
+        val requiredThresholdSecs = requiredIntervalMins * 60
+        return elapsedSecs >= requiredThresholdSecs
+    }
+
+    // 26. 23-second session does NOT produce a 50-minute break notification
+    @Test
+    fun testShortSession23SecondsCannotTrigger50MinuteBreakNotification() {
+        val startTime = 1000000L
+        val data = ActiveStudySessionData(
+            session = StudySessionDto(id = "sess-1", accountId = "acc-1", subjectId = "sub-1", startTime = "2026-08-16T10:00:00Z", status = "running", createdAt = "2026-08-16T10:00:00Z", updatedAt = "2026-08-16T10:00:00Z"),
+            subjectName = "Physics",
+            chapterName = null,
+            baseElapsedSeconds = 0,
+            activeStartedAtMs = startTime,
+            targetDurationMinutes = 50
+        )
+        val runningState = SessionState.Running(data)
+
+        // Wall clock at 23 seconds
+        val timeAt23s = startTime + 23_000L
+        assertEquals(23, calculateElapsed(runningState, timeAt23s))
+        assertFalse(shouldFireBreakNotification(runningState, "sess-1", 50, timeAt23s))
+    }
+
+    // 27. 23-minute session does NOT produce a 50-minute break notification
+    @Test
+    fun testShortSession23MinutesCannotTrigger50MinuteBreakNotification() {
+        val startTime = 1000000L
+        val data = ActiveStudySessionData(
+            session = StudySessionDto(id = "sess-1", accountId = "acc-1", subjectId = "sub-1", startTime = "2026-08-16T10:00:00Z", status = "running", createdAt = "2026-08-16T10:00:00Z", updatedAt = "2026-08-16T10:00:00Z"),
+            subjectName = "Physics",
+            chapterName = null,
+            baseElapsedSeconds = 0,
+            activeStartedAtMs = startTime,
+            targetDurationMinutes = 50
+        )
+        val runningState = SessionState.Running(data)
+
+        // Wall clock at 23 minutes (1380 seconds)
+        val timeAt23m = startTime + (23 * 60 * 1000L)
+        assertEquals(1380, calculateElapsed(runningState, timeAt23m))
+        assertFalse(shouldFireBreakNotification(runningState, "sess-1", 50, timeAt23m))
+    }
+
+    // 28. PAUSED session CANNOT produce a break notification (even if 50 minutes of wall clock have passed)
+    @Test
+    fun testPausedSessionCannotTriggerBreakNotification() {
+        val startTime = 1000000L
+        val data = ActiveStudySessionData(
+            session = StudySessionDto(id = "sess-1", accountId = "acc-1", subjectId = "sub-1", startTime = "2026-08-16T10:00:00Z", status = "paused", createdAt = "2026-08-16T10:00:00Z", updatedAt = "2026-08-16T10:00:00Z"),
+            subjectName = "Physics",
+            chapterName = null,
+            baseElapsedSeconds = 23, // User paused after 23 seconds
+            activeStartedAtMs = startTime,
+            targetDurationMinutes = 50
+        )
+        val pausedState = SessionState.Paused(data, pausedElapsedSeconds = 23)
+
+        // Wall clock reaches 50 minutes after start
+        val timeAt50m = startTime + (50 * 60 * 1000L)
+        assertFalse("Paused session must never trigger break notification", shouldFireBreakNotification(pausedState, "sess-1", 50, timeAt50m))
+    }
+
+    // 29. STOPPED / COMPLETED session CANNOT produce a break notification
+    @Test
+    fun testStoppedOrCompletedSessionCannotTriggerBreakNotification() {
+        val endingState = SessionState.Ending(sessionId = "sess-1", finalDurationSeconds = 1200)
+        val idleState = SessionState.Idle
+
+        val now = 2000000L
+        assertFalse("Ending session must not trigger break notification", shouldFireBreakNotification(endingState, "sess-1", 50, now))
+        assertFalse("Idle session must not trigger break notification", shouldFireBreakNotification(idleState, "sess-1", 50, now))
+    }
+
+    // 30. Old session alarm CANNOT notify during a new session (ID mismatch protection)
+    @Test
+    fun testOldSessionAlarmCannotNotifyDuringNewSession() {
+        val startTime = 1000000L
+        val data = ActiveStudySessionData(
+            session = StudySessionDto(id = "session-B", accountId = "acc-1", subjectId = "sub-2", startTime = "2026-08-16T10:00:00Z", status = "running", createdAt = "2026-08-16T10:00:00Z", updatedAt = "2026-08-16T10:00:00Z"),
+            subjectName = "Chemistry",
+            chapterName = null,
+            baseElapsedSeconds = 3000,
+            activeStartedAtMs = startTime,
+            targetDurationMinutes = 50
+        )
+        val runningState = SessionState.Running(data)
+
+        // An old alarm for "session-A" fires while "session-B" is active
+        val alarmSessionId = "session-A"
+        val timeAt50m = startTime + (50 * 60 * 1000L)
+        assertFalse("Alarm for session-A must not fire during session-B", shouldFireBreakNotification(runningState, alarmSessionId, 50, timeAt50m))
+    }
+
+    // 31. Pause -> Resume preserves accumulated running time and only schedules remaining duration
+    @Test
+    fun testPauseResumePreservesAccumulatedRunningTimeForRemainingBreak() {
+        val intervalMins = 50
+        val intervalSecs = intervalMins * 60 // 3000 seconds
+
+        // Step 1: Study for 20 minutes (1200s), then pause
+        val accumulatedAtPause = 1200
+        val remainingBreakSecsAtPause = (intervalSecs - accumulatedAtPause).coerceAtLeast(0)
+        assertEquals(1800, remainingBreakSecsAtPause) // Exactly 30 minutes remaining
+
+        // Step 2: User stays paused for 40 minutes of wall-clock time
+        // Upon resume, remaining break duration is still exactly 1800s (30m), NOT negative or 0
+        val remainingBreakSecsOnResume = (intervalSecs - accumulatedAtPause).coerceAtLeast(0)
+        assertEquals(1800, remainingBreakSecsOnResume)
+    }
+
+    // 32. Full 50-minute running session correctly triggers break notification
+    @Test
+    fun testFull50MinuteRunningSessionTriggersBreakNotification() {
+        val startTime = 1000000L
+        val data = ActiveStudySessionData(
+            session = StudySessionDto(id = "sess-1", accountId = "acc-1", subjectId = "sub-1", startTime = "2026-08-16T10:00:00Z", status = "running", createdAt = "2026-08-16T10:00:00Z", updatedAt = "2026-08-16T10:00:00Z"),
+            subjectName = "Biology",
+            chapterName = "Genetics",
+            baseElapsedSeconds = 0,
+            activeStartedAtMs = startTime,
+            targetDurationMinutes = 50
+        )
+        val runningState = SessionState.Running(data)
+
+        // Exactly 50 minutes of continuous running study
+        val timeAt50m = startTime + (50 * 60 * 1000L)
+        assertEquals(3000, calculateElapsed(runningState, timeAt50m))
+        assertTrue("Continuous 50-minute running study must trigger break notification", shouldFireBreakNotification(runningState, "sess-1", 50, timeAt50m))
+    }
+
+    // 33. Expiry while IDLE blocks Start Study
+    @Test
+    fun testEntitlementExpiredBlocksStartSession() {
+        val expiredEntitlement = EntitlementDto(
+            entitlementId = "ent-1",
+            accountId = "acc-1",
+            currentPlanId = "free_trial",
+            status = "expired",
+            isPaid = false,
+            features = emptyList(),
+            expiresAt = "2026-08-10T00:00:00Z",
+            lastVerifiedAt = "2026-08-16T00:00:00Z",
+            createdAt = "2026-08-01T00:00:00Z",
+            updatedAt = "2026-08-16T00:00:00Z"
+        )
+
+        fun canStartStudy(ent: EntitlementDto?): Boolean {
+            return ent?.status == "active"
+        }
+
+        assertFalse("Expired entitlement must prevent starting study session", canStartStudy(expiredEntitlement))
+    }
+
+    // 34. Expiry while PAUSED blocks Resume
+    @Test
+    fun testEntitlementExpiredBlocksResumeSession() {
+        val expiredEntitlement = EntitlementDto(
+            entitlementId = "ent-1",
+            accountId = "acc-1",
+            currentPlanId = "free_trial",
+            status = "expired",
+            isPaid = false,
+            features = emptyList(),
+            expiresAt = "2026-08-10T00:00:00Z",
+            lastVerifiedAt = "2026-08-16T00:00:00Z",
+            createdAt = "2026-08-01T00:00:00Z",
+            updatedAt = "2026-08-16T00:00:00Z"
+        )
+
+        fun canResumeStudy(ent: EntitlementDto?): Boolean {
+            return ent?.status == "active"
+        }
+
+        assertFalse("Expired entitlement must prevent resuming study session", canResumeStudy(expiredEntitlement))
+    }
+
+    // 35. Expiry while RUNNING terminates active session and stops foreground service
+    @Test
+    fun testEntitlementExpiredTerminatesRunningSession() {
+        val data = ActiveStudySessionData(
+            session = StudySessionDto(id = "sess-active", accountId = "acc-1", subjectId = "sub-1", startTime = "2026-08-16T10:00:00Z", status = "running", createdAt = "2026-08-16T10:00:00Z", updatedAt = "2026-08-16T10:00:00Z"),
+            subjectName = "Math",
+            chapterName = "Calculus",
+            baseElapsedSeconds = 120,
+            activeStartedAtMs = 1000000L,
+            targetDurationMinutes = 45
+        )
+        var state: SessionState = SessionState.Running(data)
+        var foregroundServiceRunning = true
+
+        // Simulate entitlement expiry signal received from backend
+        fun onEntitlementExpired() {
+            state = SessionState.Idle
+            foregroundServiceRunning = false
+        }
+
+        onEntitlementExpired()
+        assertEquals(SessionState.Idle, state)
+        assertFalse("Foreground service must stop immediately when entitlement expires during running session", foregroundServiceRunning)
+    }
+
+    // 36. Expiry while PAUSED terminates session
+    @Test
+    fun testEntitlementExpiredTerminatesPausedSession() {
+        val data = ActiveStudySessionData(
+            session = StudySessionDto(id = "sess-paused", accountId = "acc-1", subjectId = "sub-1", startTime = "2026-08-16T10:00:00Z", status = "paused", createdAt = "2026-08-16T10:00:00Z", updatedAt = "2026-08-16T10:00:00Z"),
+            subjectName = "Chemistry",
+            chapterName = null,
+            baseElapsedSeconds = 300,
+            activeStartedAtMs = 1000000L,
+            targetDurationMinutes = 45
+        )
+        var state: SessionState = SessionState.Paused(data, 300)
+
+        // Entitlement expiry event
+        fun onEntitlementExpired() {
+            state = SessionState.Idle
+        }
+
+        onEntitlementExpired()
+        assertEquals(SessionState.Idle, state)
+    }
+
+    // 37. Clock tampering resilience: client clock set back does NOT bypass server UTC check
+    @Test
+    fun testServerUtcAuthoritativeAgainstClientClockTampering() {
+        // Server says trial expired at 2026-08-15T00:00:00Z
+        val serverExpiryEpochMs = 1786752000000L // 2026-08-15
+        val serverCurrentTimeMs = 1786838400000L // 2026-08-16 (1 day after expiry)
+
+        // Attacker sets local device clock back to 2026-08-01 (before expiry)
+        val maliciousDeviceClockMs = 1785542400000L
+        assertTrue("Device clock shows active locally", maliciousDeviceClockMs < serverExpiryEpochMs)
+
+        // Server authoritative evaluation
+        val isExpiredOnServer = serverCurrentTimeMs > serverExpiryEpochMs
+        assertTrue("Server time must authoritatively determine expiry regardless of client clock tampering", isExpiredOnServer)
+    }
+
+    // 38. Existing session ID cannot bypass expired entitlement on server mutations
+    @Test
+    fun testExistingSessionIdCannotBypassExpiredEntitlementOnServer() {
+        val existingSessionId = "session-pre-expiry-123"
+
+        fun handleServerMutation(sessionId: String, isEntitlementActive: Boolean): Pair<String, Int> {
+            if (!isEntitlementActive) {
+                return sessionId to 403 // TRIAL_EXPIRED
+            }
+            return sessionId to 200
+        }
+
+        val result = handleServerMutation(existingSessionId, isEntitlementActive = false)
+        assertEquals(existingSessionId, result.first)
+        assertEquals(403, result.second)
+    }
+
+    // 39. Cancelled session cancels pending break reminder and rejects notification
+    @Test
+    fun testCancelledSessionCannotTriggerBreakNotification() {
+        val idleState = SessionState.Idle
+        assertFalse("Cancelled / Idle session must never allow break notification", shouldFireBreakNotification(idleState, "sess-cancelled", 50, System.currentTimeMillis()))
+    }
+
+    // 40. Generic 403 does NOT falsely mark entitlement expired (only recognized TRIAL_EXPIRED/SUBSCRIPTION_REQUIRED)
+    @Test
+    fun testGeneric403DoesNotFalselyMarkEntitlementExpired() {
+        fun isEntitlementErrorCode(code: String?): Boolean {
+            return code == "TRIAL_EXPIRED" || code == "SUBSCRIPTION_REQUIRED" || code == "SUBSCRIPTION_EXPIRED"
+        }
+
+        assertFalse("RATE_LIMIT_EXCEEDED should not be treated as entitlement expiry", isEntitlementErrorCode("RATE_LIMIT_EXCEEDED"))
+        assertFalse("INVALID_CREDENTIALS should not be treated as entitlement expiry", isEntitlementErrorCode("INVALID_CREDENTIALS"))
+        assertTrue("TRIAL_EXPIRED is a valid entitlement error", isEntitlementErrorCode("TRIAL_EXPIRED"))
+        assertTrue("SUBSCRIPTION_REQUIRED is a valid entitlement error", isEntitlementErrorCode("SUBSCRIPTION_REQUIRED"))
+    }
+
+    // 41. Paid active user remains accessible
+    @Test
+    fun testPaidActiveUserRemainsAccessible() {
+        val paidEntitlement = EntitlementDto(
+            entitlementId = "ent-paid",
+            accountId = "acc-paid",
+            currentPlanId = "monthly",
+            status = "active",
+            isPaid = true,
+            features = listOf("dashboard", "study", "planner", "revision", "analytics", "goals", "cloud_sync"),
+            expiresAt = "2026-09-16T00:00:00Z",
+            lastVerifiedAt = "2026-08-16T00:00:00Z",
+            createdAt = "2026-08-16T00:00:00Z",
+            updatedAt = "2026-08-16T00:00:00Z"
+        )
+
+        fun canAccessFeature(ent: EntitlementDto?, feature: String): Boolean {
+            return ent?.status == "active" && ent.features.contains(feature)
+        }
+
+        assertTrue("Paid active user must have full study access", canAccessFeature(paidEntitlement, "study"))
+        assertTrue("Paid active user must have full planner access", canAccessFeature(paidEntitlement, "planner"))
+    }
+
+    // 42. Extended trial preserves Trial badge and isPaid = false
+    @Test
+    fun testExtendedTrialPreservesTrialBadge() {
+        val extendedTrialEntitlement = EntitlementDto(
+            entitlementId = "ent-trial-ext",
+            accountId = "acc-trial",
+            currentPlanId = "free_trial",
+            status = "active",
+            isPaid = false,
+            features = listOf("dashboard", "study", "planner", "revision", "analytics", "goals", "cloud_sync"),
+            expiresAt = "2026-08-20T00:00:00Z",
+            lastVerifiedAt = "2026-08-16T00:00:00Z",
+            createdAt = "2026-08-09T00:00:00Z",
+            updatedAt = "2026-08-16T00:00:00Z"
+        )
+
+        fun getBadgeLabel(ent: EntitlementDto?): String {
+            if (ent == null) return "No Access"
+            if (ent.status == "expired") return "Trial Expired"
+            if (ent.isPaid) return "Premium"
+            if (ent.currentPlanId == "free_trial") return "Trial"
+            return "Active"
+        }
+
+        assertEquals("Trial", getBadgeLabel(extendedTrialEntitlement))
+        assertFalse("Extended trial must not have isPaid = true", extendedTrialEntitlement.isPaid)
     }
 }

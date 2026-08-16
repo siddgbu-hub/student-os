@@ -85,9 +85,23 @@ export const StudyProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const loadActiveSession = useCallback(async () => {
     if (!sessionToken || !deviceId) return;
-    const session = await studyApi.fetchActiveSessionApi(sessionToken, deviceId);
-    setActiveSession(session);
+    try {
+      const session = await studyApi.fetchActiveSessionApi(sessionToken, deviceId);
+      setActiveSession(session);
+    } catch {
+      setActiveSession(null);
+      setElapsedSeconds(0);
+    }
   }, [sessionToken, deviceId]);
+
+  useEffect(() => {
+    const handleExpired = () => {
+      setActiveSession(null);
+      setElapsedSeconds(0);
+    };
+    window.addEventListener('entitlement:expired', handleExpired);
+    return () => window.removeEventListener('entitlement:expired', handleExpired);
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {

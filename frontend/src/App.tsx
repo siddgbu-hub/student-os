@@ -15,8 +15,9 @@ import { RevisionPage } from './pages/revision/RevisionPage.js';
 import { AnalyticsPage } from './pages/analytics/AnalyticsPage.js';
 import { AccountPage } from './pages/account/AccountPage.js';
 import { Button } from '@student-os/ui';
-import { EntitlementDto } from '@student-os/shared';
+import { EntitlementDto, PlanDto, PaymentConfigDto } from '@student-os/shared';
 import { EntitlementService } from './services/entitlementService.js';
+import { UpgradeModal } from './components/entitlement/UpgradeModal.js';
 
 const WorkspaceShell: React.FC = () => {
   const { account, logout, token } = useAuth();
@@ -27,6 +28,9 @@ const WorkspaceShell: React.FC = () => {
   const { showToast } = useToast();
   const [activeModule, setActiveModule] = useState<'dashboard' | 'study' | 'planner' | 'revision' | 'analytics' | 'account'>('dashboard');
   const [entitlement, setEntitlement] = useState<EntitlementDto | null>(null);
+  const [plans, setPlans] = useState<PlanDto[]>([]);
+  const [paymentConfig, setPaymentConfig] = useState<PaymentConfigDto | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
@@ -34,8 +38,57 @@ const WorkspaceShell: React.FC = () => {
       setEntitlement(null);
       return;
     }
-    EntitlementService.getEntitlement().then(setEntitlement).catch(() => setEntitlement(null));
+    const refresh = () => {
+      EntitlementService.getEntitlement().then((res) => {
+        if (res) setEntitlement(res);
+      }).catch(() => {});
+    };
+
+    refresh();
+    EntitlementService.getPlans().then(setPlans).catch(() => {});
+    EntitlementService.getPaymentConfig().then(setPaymentConfig).catch(() => {});
+
+    const handleFocus = () => refresh();
+    const handleVisibility = () => {
+      if (!document.hidden) refresh();
+    };
+    const handleOnline = () => refresh();
+    const handleExpiredEvent = () => {
+      setEntitlement((prev) => prev ? { ...prev, status: 'expired' } : null);
+      setShowUpgradeModal(true);
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('entitlement:expired', handleExpiredEvent);
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('entitlement:expired', handleExpiredEvent);
+    };
   }, [token, account?.accountId]);
+
+  // Near-expiry boundary authoritative check
+  useEffect(() => {
+    if (!entitlement?.expiresAt) return;
+    try {
+      const expiryMs = new Date(entitlement.expiresAt).getTime();
+      const diff = expiryMs - Date.now();
+      if (diff > 0 && diff < 86400000) {
+        const timer = setTimeout(() => {
+          EntitlementService.getEntitlement().then((res) => {
+            if (res) setEntitlement(res);
+          }).catch(() => {});
+        }, diff + 1000);
+        return () => clearTimeout(timer);
+      }
+    } catch {
+      // ignore
+    }
+  }, [entitlement?.expiresAt]);
 
   const handleRefresh = async () => {
     if (isRefreshing || !token) return;
@@ -60,6 +113,8 @@ const WorkspaceShell: React.FC = () => {
     }
   };
 
+  const isActuallyExpired = entitlement?.status === 'expired';
+  const isTrialActive = entitlement?.status === 'active' && !entitlement?.isPaid;
   const isPaidActive = entitlement?.status === 'active' && entitlement?.isPaid === true;
   const displayName = profile?.fullName || 'Student';
   const initial = displayName.charAt(0).toUpperCase();
@@ -168,6 +223,59 @@ const WorkspaceShell: React.FC = () => {
 
           {/* User Profile & Actions */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+            {/* Entitlement Badges */}
+            {isActuallyExpired && (
+              <button
+                type="button"
+                onClick={() => setShowUpgradeModal(true)}
+                style={{
+                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                  color: '#ef4444',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  fontSize: '0.72rem',
+                  fontWeight: '700',
+                  padding: '3px 8px',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                ⚠️ Trial Expired
+              </button>
+            )}
+            {isTrialActive && (
+              <span
+                style={{
+                  backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                  color: '#3b82f6',
+                  border: '1px solid rgba(59, 130, 246, 0.25)',
+                  fontSize: '0.72rem',
+                  fontWeight: '600',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                }}
+              >
+                Trial
+              </span>
+            )}
+            {isPaidActive && (
+              <span
+                style={{
+                  backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                  color: '#f59e0b',
+                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  fontSize: '0.72rem',
+                  fontWeight: '700',
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                }}
+              >
+                ⭐ Pro
+              </span>
+            )}
+
             {/* In-App Refresh Action */}
             <button
               type="button"
@@ -250,19 +358,6 @@ const WorkspaceShell: React.FC = () => {
                   >
                     {initial}
                   </div>
-                  {isPaidActive && (
-                    <span
-                      style={{
-                        position: 'absolute',
-                        bottom: '-3px',
-                        right: '-3px',
-                        fontSize: '9px',
-                        lineHeight: 1,
-                      }}
-                    >
-                      ⭐
-                    </span>
-                  )}
                 </div>
                 <span style={{ fontSize: '0.8rem', color: isPaidActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', fontWeight: isPaidActive ? '600' : '500' }}>
                   {displayName}
@@ -280,9 +375,84 @@ const WorkspaceShell: React.FC = () => {
         </div>
       </header>
 
+      {/* Persistent Warning Banner for Expired Entitlement */}
+      {isActuallyExpired && (
+        <div
+          style={{
+            backgroundColor: '#fef2f2',
+            borderBottom: '1px solid #fecaca',
+            padding: '0.65rem 1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            color: '#991b1b',
+            fontSize: '0.85rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+            <span>
+              <strong>Your 7-day free trial has ended.</strong> Study timer, Planner, Revision, and Analytics require an active Pro subscription.
+            </span>
+          </div>
+          <Button
+            variant="primary"
+            onClick={() => setShowUpgradeModal(true)}
+            style={{
+              fontSize: '0.8rem',
+              padding: '4px 12px',
+              height: '28px',
+              backgroundColor: '#dc2626',
+              color: '#fff',
+              borderColor: '#dc2626',
+              flexShrink: 0,
+            }}
+          >
+            Upgrade to Pro
+          </Button>
+        </div>
+      )}
+
       {/* Main Content Container */}
       <main className="main-content-container" style={{ maxWidth: '1180px', margin: '0 auto', padding: 'var(--spacing-md)' }}>
-        {activeModule === 'dashboard' ? (
+        {isActuallyExpired && (activeModule === 'study' || activeModule === 'planner' || activeModule === 'revision' || activeModule === 'analytics') ? (
+          <div
+            style={{
+              maxWidth: '680px',
+              margin: '40px auto',
+              padding: '48px 32px',
+              borderRadius: 'var(--radius-xl)',
+              backgroundColor: 'var(--color-bg-secondary)',
+              border: '1px solid var(--color-border)',
+              textAlign: 'center',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+            }}
+          >
+            <div style={{ fontSize: '3.5rem', marginBottom: '16px' }}>🔒</div>
+            <h2 style={{ fontSize: '1.6rem', fontWeight: '800', marginBottom: '12px', color: 'var(--color-text-primary)', letterSpacing: '-0.02em' }}>
+              Your 7-day free trial has ended
+            </h2>
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', marginBottom: '28px', lineHeight: 1.6, maxWidth: '520px', margin: '0 auto 28px' }}>
+              Upgrade to Student OS Pro to unlock full access to the Study Engine, Planner, Revision Tracker, and Analytics. Choose a plan to continue your progress.
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
+              <Button
+                variant="primary"
+                onClick={() => setShowUpgradeModal(true)}
+                style={{
+                  padding: '0.75rem 2rem',
+                  fontWeight: '700',
+                  fontSize: '1rem',
+                  backgroundColor: 'var(--color-accent)',
+                  color: '#fff',
+                }}
+              >
+                View Pro Plans & Upgrade →
+              </Button>
+            </div>
+          </div>
+        ) : activeModule === 'dashboard' ? (
           <DashboardPage onNavigate={setActiveModule} />
         ) : activeModule === 'study' ? (
           <StudyPage />
@@ -296,6 +466,16 @@ const WorkspaceShell: React.FC = () => {
           <AccountPage />
         )}
       </main>
+
+      {/* Upgrade / Commercial Modal */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        plans={plans}
+        contactWhatsApp={paymentConfig?.contactWhatsApp}
+        accountEmail={account?.email || ''}
+        entitlement={entitlement}
+        onClose={() => setShowUpgradeModal(false)}
+      />
 
       {/* Fixed Mobile Bottom Navigation Bar (Parity with Android) */}
       <nav className="mobile-bottom-nav" aria-label="Mobile Navigation">

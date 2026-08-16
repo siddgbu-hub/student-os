@@ -434,7 +434,7 @@ const ActivityHeatmap: React.FC<{ onOpenPlanner: () => void }> = ({ onOpenPlanne
 
 // ─── 1. Hero Section (Equal Horizontal Spacing Between Metrics) ───────────────
 
-const HeroSection: React.FC<{ displayName: string; onNavigate: (m: NavModule) => void }> = ({ displayName, onNavigate }) => {
+const HeroSection: React.FC<{ displayName: string; onNavigate: (m: NavModule) => void; isExpired?: boolean }> = ({ displayName, onNavigate, isExpired }) => {
   const { goalProgress } = useGoal();
   const { activeSession, elapsedSeconds, subjects, resumeSession, todaySummary } = useStudy();
   const { dashboard } = useAnalytics();
@@ -522,7 +522,7 @@ const HeroSection: React.FC<{ displayName: string; onNavigate: (m: NavModule) =>
 
       {/* Right Metrics Panel: Equal 16px horizontal spacing & dominant values */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        {activeSession ? (
+        {activeSession && !isExpired ? (
           <div
             style={{
               background: 'rgba(255,255,255,0.12)',
@@ -1111,10 +1111,10 @@ const RecentActivity: React.FC = () => {
 
 // ─── Session Banner ──────────────────────────────────────────────────────────
 
-const SessionBanner: React.FC<{ onNavigate: (m: NavModule) => void }> = ({ onNavigate }) => {
+const SessionBanner: React.FC<{ onNavigate: (m: NavModule) => void; isExpired?: boolean }> = ({ onNavigate, isExpired }) => {
   const { activeSession } = useStudy();
 
-  if (!activeSession) return null;
+  if (!activeSession || isExpired) return null;
 
   return (
     <div
@@ -1131,18 +1131,27 @@ const SessionBanner: React.FC<{ onNavigate: (m: NavModule) => void }> = ({ onNav
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span style={{ width: '7px', height: '7px', borderRadius: '50%', backgroundColor: '#4ade80', display: 'inline-block' }} />
-        <span style={{ fontSize: '0.8rem', fontWeight: '700' }}>
+        <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#4ade80', display: 'inline-block' }} />
+        <span style={{ fontSize: '0.82rem', fontWeight: '700' }}>
           {activeSession.status === 'paused' ? 'Study session paused' : 'Study session active'}
         </span>
       </div>
-      <Button
+      <button
         type="button"
         onClick={() => onNavigate('study')}
-        style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', color: '#ffffff', fontSize: '0.75rem', height: '28px' }}
+        style={{
+          backgroundColor: '#ffffff',
+          color: '#1e3faf',
+          border: 'none',
+          borderRadius: 'var(--radius-sm)',
+          padding: '4px 12px',
+          fontSize: '0.75rem',
+          fontWeight: '700',
+          cursor: 'pointer',
+        }}
       >
         Open Study →
-      </Button>
+      </button>
     </div>
   );
 };
@@ -1198,12 +1207,13 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
   const tasksDone     = plannerToday?.completedTasksCount ?? 0;
   const tasksTotal    = plannerToday?.totalTasksCount ?? 0;
   const plannerPct    = tasksTotal > 0 ? Math.round((tasksDone / tasksTotal) * 100) : 0;
+  const isExpired     = entitlement?.status === 'expired';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontFamily: 'var(--font-family-base)', maxWidth: '100%' }}>
 
       {/* 1. Hero Section */}
-      <HeroSection displayName={displayName} onNavigate={onNavigate} />
+      <HeroSection displayName={displayName} onNavigate={onNavigate} isExpired={isExpired} />
 
       {/* 2. 7-Day Trial Status & Live Countdown Card */}
       <TrialCountdownBanner
@@ -1267,7 +1277,7 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
       </div>
 
       {/* 7. Session Banner */}
-      <SessionBanner onNavigate={onNavigate} />
+      <SessionBanner onNavigate={onNavigate} isExpired={isExpired} />
 
       {/* 8. Upgrade Modal */}
       <UpgradeModal

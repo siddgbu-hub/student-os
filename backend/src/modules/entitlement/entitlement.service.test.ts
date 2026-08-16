@@ -421,5 +421,60 @@ describe('Student OS — Final Release Entitlement Model (7-Day Trial + Full Acc
         'Hi, I want to get Student OS Pro Yearly access for ₹299.\n\nAccount: sidd.gbu@gmail.com\nPlan: yearly\nDuration: 365 days'
       );
     });
+
+    it('19. Expired trial resolves to status: expired with empty features and isPaid: false', async () => {
+      const expiredAcc = 'acc-expired-test';
+      (repo as any).accounts.set(expiredAcc, {
+        account_id: expiredAcc,
+        email: 'expired@studentos.com',
+        created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 days ago (trial expired 3 days ago)
+        last_login_at: new Date().toISOString(),
+      });
+
+      const entitlement = await service.getEntitlement(expiredAcc);
+      expect(entitlement.status).toBe('expired');
+      expect(entitlement.isPaid).toBe(false);
+      expect(entitlement.features).toEqual([]);
+    });
+
+    it('20. Active trial resolves to status: active with ALL_STUDENT_OS_FEATURES and isPaid: false', async () => {
+      const activeTrialAcc = 'acc-active-trial';
+      (repo as any).accounts.set(activeTrialAcc, {
+        account_id: activeTrialAcc,
+        email: 'activetrial@studentos.com',
+        created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days ago (5 days left)
+        last_login_at: new Date().toISOString(),
+      });
+
+      const entitlement = await service.getEntitlement(activeTrialAcc);
+      expect(entitlement.status).toBe('active');
+      expect(entitlement.isPaid).toBe(false);
+      expect(entitlement.currentPlanId).toBe('free_trial');
+      expect(entitlement.features).toEqual(ALL_STUDENT_OS_FEATURES);
+    });
+
+    it('21. Paid subscription resolves to status: active with ALL_STUDENT_OS_FEATURES and isPaid: true', async () => {
+      const paidAcc = 'acc-paid-user';
+      (repo as any).accounts.set(paidAcc, {
+        account_id: paidAcc,
+        email: 'paiduser2@studentos.com',
+        created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        last_login_at: new Date().toISOString(),
+      });
+
+      await service.grantManualEntitlement({
+        accountId: paidAcc,
+        planId: 'monthly',
+        durationDays: 30,
+        grantedBy: 'admin-1',
+        reason: 'Paid Pro Activation',
+      });
+
+      const entitlement = await service.getEntitlement(paidAcc);
+      expect(entitlement.status).toBe('active');
+      expect(entitlement.isPaid).toBe(true);
+      expect(entitlement.currentPlanId).toBe('monthly');
+      expect(entitlement.features).toEqual(ALL_STUDENT_OS_FEATURES);
+    });
   });
 });

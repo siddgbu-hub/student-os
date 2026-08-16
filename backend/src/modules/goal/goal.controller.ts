@@ -1,6 +1,7 @@
 import { Hono, Context } from 'hono';
 import type { Env } from '../../index.js';
 import { createAuthMiddleware } from '../../middleware/auth.js';
+import { requireActiveSubscription } from '../../middleware/entitlement.js';
 import { GoalRepository } from '../../db/goal.repository.js';
 import { GoalService } from './goal.service.js';
 import { CreateGoalSchema, UpdateGoalSchema } from '@student-os/shared';
@@ -14,7 +15,7 @@ export const goalRouter = new Hono<{
   };
 }>();
 
-goalRouter.use('*', createAuthMiddleware);
+goalRouter.use('*', createAuthMiddleware, requireActiveSubscription());
 
 type GoalContext = Context<{
   Bindings: Env;

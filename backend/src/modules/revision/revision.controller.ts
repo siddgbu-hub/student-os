@@ -1,6 +1,7 @@
 import { Hono, Context } from 'hono';
 import type { Env } from '../../index.js';
 import { createAuthMiddleware } from '../../middleware/auth.js';
+import { requireActiveSubscription } from '../../middleware/entitlement.js';
 import { RevisionRepository } from '../../db/revision.repository.js';
 import { StudyRepository } from '../../db/study.repository.js';
 import { RevisionService } from './revision.service.js';
@@ -21,7 +22,7 @@ export const revisionRouter = new Hono<{
   };
 }>();
 
-revisionRouter.use('*', createAuthMiddleware);
+revisionRouter.use('*', createAuthMiddleware, requireActiveSubscription());
 
 type RevisionContext = Context<{
   Bindings: Env;

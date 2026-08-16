@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { StudyRepository } from '../../db/study.repository.js';
 import { StudyService } from './study.service.js';
 import { createAuthMiddleware } from '../../middleware/auth.js';
+import { requireActiveSubscription } from '../../middleware/entitlement.js';
 import {
   CreateSubjectSchema,
   UpdateSubjectSchema,
@@ -13,8 +14,8 @@ import type { Env } from '../../index.js';
 
 export const studyRouter = new Hono<{ Bindings: Env; Variables: { accountId: string; sessionId: string; deviceId: string } }>();
 
-// Protect all Study routes with Auth Middleware
-studyRouter.use('*', createAuthMiddleware);
+// Protect all Study routes with Auth and Entitlement Middleware
+studyRouter.use('*', createAuthMiddleware, requireActiveSubscription());
 
 // --- SUBJECT ENDPOINTS ---
 

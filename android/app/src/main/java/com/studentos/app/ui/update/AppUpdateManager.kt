@@ -1,8 +1,11 @@
 package com.studentos.app.ui.update
 
-import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
 import com.studentos.app.BuildConfig
@@ -47,8 +50,18 @@ data class VersionApiResponse(
 )
 
 // ---------------------------------------------------------------------------
-// Download state
+// State machines
 // ---------------------------------------------------------------------------
+
+sealed class UpdateInstallState {
+    object Idle : UpdateInstallState()
+    data class Downloading(val percent: Int) : UpdateInstallState()
+    object Verifying : UpdateInstallState()
+    data class AwaitingInstallPermission(val apkFile: File) : UpdateInstallState()
+    data class Installing(val apkFile: File) : UpdateInstallState()
+    data class Failed(val message: String) : UpdateInstallState()
+    object Completed : UpdateInstallState()
+}
 
 sealed class DownloadState {
     object Idle : DownloadState()
@@ -73,11 +86,22 @@ sealed class UpdateCheckResult {
 
 object AppUpdateManager {
 
+    private val _installState = MutableStateFlow<UpdateInstallState>(UpdateInstallState.Idle)
+    val installState: StateFlow<UpdateInstallState> = _installState.asStateFlow()
+
     private val _downloadState = MutableStateFlow<DownloadState>(DownloadState.Idle)
     val downloadState: StateFlow<DownloadState> = _downloadState.asStateFlow()
 
     private val _updateCheckResult = MutableStateFlow<UpdateCheckResult>(UpdateCheckResult.NoUpdate)
     val updateCheckResult: StateFlow<UpdateCheckResult> = _updateCheckResult.asStateFlow()
+
+    private val _statusNotice = MutableStateFlow<String?>(null)
+    val statusNotice: StateFlow<String?> = _statusNotice.asStateFlow()
+
+    var pendingApkFile: File? = null
+        private set
+
+    private var lastInstallLaunchTimestamp: Long = 0L
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
@@ -87,8 +111,7 @@ object AppUpdateManager {
     }
 
     // -----------------------------------------------------------------------
-    // 1. Version check — call once on app launch (lifecycle-aware callers
-    //    should launch from LaunchedEffect(Unit) to avoid repeat calls)
+    // 1. Version check — call once on app launch
     // -----------------------------------------------------------------------
 
     suspend fun checkForUpdate() {
@@ -144,17 +167,101 @@ object AppUpdateManager {
     }
 
     // -----------------------------------------------------------------------
-    // 3. Download APK with progress reporting
-    //    Prevents duplicate parallel downloads by checking DownloadState.
+    // 3. Permission checks & Settings Intents
+    // -----------------------------------------------------------------------
+
+    fun canRequestPackageInstalls(context: Context): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.packageManager.canRequestPackageInstalls()
+        } else {
+            true
+        }
+    }
+
+    fun buildUnknownAppSourcesIntent(context: Context): Intent {
+        return Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+            data = Uri.parse("package:${context.packageName}")
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+    }
+
+    fun buildSecuritySettingsFallbackIntent(): Intent {
+        return Intent(Settings.ACTION_SECURITY_SETTINGS).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+    }
+
+    fun openInstallPermissionSettings(context: Context): Boolean {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val appSettingsIntent = buildUnknownAppSourcesIntent(context)
+            try {
+                context.startActivity(appSettingsIntent)
+                return true
+            } catch (e: ActivityNotFoundException) {
+                Log.w(TAG, "ACTION_MANAGE_UNKNOWN_APP_SOURCES not found, trying security settings fallback", e)
+                val fallbackIntent = buildSecuritySettingsFallbackIntent()
+                try {
+                    context.startActivity(fallbackIntent)
+                    return true
+                } catch (e2: Exception) {
+                    Log.e(TAG, "Failed to open fallback security settings", e2)
+                    val errorMsg = "Unable to open Android Settings. Please allow 'Install unknown apps' for Student OS in your device Settings."
+                    _installState.value = UpdateInstallState.Failed(errorMsg)
+                    _downloadState.value = DownloadState.Failed(errorMsg)
+                    return false
+                }
+            }
+        }
+        return false
+    }
+
+    // -----------------------------------------------------------------------
+    // 4. Start / Resume update flow (Reuses verified local APK if present)
+    // -----------------------------------------------------------------------
+
+    suspend fun startOrResumeUpdate(context: Context, metadata: AndroidReleaseMetadata) {
+        val current = _installState.value
+        if (current is UpdateInstallState.Downloading ||
+            current is UpdateInstallState.Verifying ||
+            current is UpdateInstallState.Installing
+        ) {
+            Log.d(TAG, "[Update:START] already in active state $current, ignoring duplicate request")
+            return
+        }
+
+        _statusNotice.value = null
+
+        // Check if verified APK already exists locally on disk
+        val updateDir = File(context.filesDir, APK_SUBDIR).also { it.mkdirs() }
+        val localFile = File(updateDir, "StudentOS-v${metadata.latestVersionName}.apk")
+
+        if (localFile.exists() && localFile.length() > 0) {
+            val existingSha256 = withContext(Dispatchers.IO) { sha256Hex(localFile) }
+            if (existingSha256.equals(metadata.apkSha256, ignoreCase = true)) {
+                Log.d(TAG, "[Update:REUSE] verified local APK exists, reusing without redownload")
+                pendingApkFile = localFile
+                processVerifiedApk(context, localFile)
+                return
+            } else {
+                Log.d(TAG, "[Update:REUSE] local file checksum mismatch, re-downloading")
+                localFile.delete()
+            }
+        }
+
+        downloadApk(context, metadata)
+    }
+
+    // -----------------------------------------------------------------------
+    // 5. Download APK with progress reporting & SHA-256 verification
     // -----------------------------------------------------------------------
 
     suspend fun downloadApk(context: Context, metadata: AndroidReleaseMetadata) {
-        // Prevent duplicate downloads
-        if (_downloadState.value is DownloadState.Progress) {
+        if (_installState.value is UpdateInstallState.Downloading) {
             Log.d(TAG, "[Update:DOWNLOAD] already in progress, ignoring duplicate request")
             return
         }
 
+        _installState.value = UpdateInstallState.Downloading(0)
         _downloadState.value = DownloadState.Progress(0)
         Log.d(TAG, "[Update:DOWNLOAD] starting url=${metadata.apkUrl}")
 
@@ -165,7 +272,7 @@ object AppUpdateManager {
                 val file = File(updateDir, "StudentOS-v${metadata.latestVersionName}.apk")
 
                 val request = Request.Builder()
-                    .url(metadata.apkUrl)   // server-supplied URL, always HTTPS
+                    .url(metadata.apkUrl)
                     .get()
                     .build()
 
@@ -191,6 +298,7 @@ object AppUpdateManager {
                                 } else 0
 
                                 if (percent != lastReportedPercent) {
+                                    _installState.value = UpdateInstallState.Downloading(percent)
                                     _downloadState.value = DownloadState.Progress(percent)
                                     lastReportedPercent = percent
                                 }
@@ -203,13 +311,14 @@ object AppUpdateManager {
             }
         } catch (e: Exception) {
             Log.e(TAG, "[Update:DOWNLOAD_FAILED] ${e.message}")
-            _downloadState.value = DownloadState.Failed("Download failed: ${e.message ?: "Unknown error"}")
+            val errorMsg = "Download failed: ${e.message ?: "Unknown error"}"
+            _installState.value = UpdateInstallState.Failed(errorMsg)
+            _downloadState.value = DownloadState.Failed(errorMsg)
             return
         }
 
-        // -----------------------------------------------------------------------
-        // 4. SHA-256 integrity verification — never install on mismatch
-        // -----------------------------------------------------------------------
+        // SHA-256 integrity verification
+        _installState.value = UpdateInstallState.Verifying
         val downloadedSha256 = withContext(Dispatchers.IO) { sha256Hex(apkFile) }
         val expectedSha256 = metadata.apkSha256.lowercase()
 
@@ -218,56 +327,127 @@ object AppUpdateManager {
         if (downloadedSha256 != expectedSha256) {
             Log.e(TAG, "[Update:SHA256_MISMATCH] deleting corrupted file")
             apkFile.delete()
-            _downloadState.value = DownloadState.Failed(
-                "Update verification failed. The downloaded file appears corrupted. Please try again."
-            )
+            val errorMsg = "Update verification failed. The downloaded file appears corrupted. Please try again."
+            _installState.value = UpdateInstallState.Failed(errorMsg)
+            _downloadState.value = DownloadState.Failed(errorMsg)
             return
         }
 
-        Log.d(TAG, "[Update:SHA256_OK] file verified, proceeding to install")
-        _downloadState.value = DownloadState.Success(apkFile)
+        Log.d(TAG, "[Update:SHA256_OK] file verified, proceeding")
+        pendingApkFile = apkFile
+        processVerifiedApk(context, apkFile)
     }
 
     // -----------------------------------------------------------------------
-    // 5. Launch Android Package Installer via FileProvider (content:// URI)
+    // 6. Process verified APK & evaluate install permission
+    // -----------------------------------------------------------------------
+
+    fun processVerifiedApk(context: Context, apkFile: File) {
+        if (canRequestPackageInstalls(context)) {
+            Log.d(TAG, "[Update:INSTALL] install permission granted, launching installer")
+            _installState.value = UpdateInstallState.Installing(apkFile)
+            _downloadState.value = DownloadState.Success(apkFile)
+            launchInstaller(context, apkFile)
+        } else {
+            Log.d(TAG, "[Update:PERMISSION_REQUIRED] awaiting user install permission")
+            _installState.value = UpdateInstallState.AwaitingInstallPermission(apkFile)
+            _downloadState.value = DownloadState.Success(apkFile)
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // 7. Lifecycle resume & user action handlers
+    // -----------------------------------------------------------------------
+
+    fun onResume(context: Context) {
+        val pending = pendingApkFile ?: return
+        if (!pending.exists()) {
+            pendingApkFile = null
+            return
+        }
+
+        val currentState = _installState.value
+        if (currentState is UpdateInstallState.AwaitingInstallPermission) {
+            if (canRequestPackageInstalls(context)) {
+                Log.d(TAG, "[Update:RESUME] permission granted in settings, auto-launching installer")
+                _statusNotice.value = null
+                _installState.value = UpdateInstallState.Installing(pending)
+                _downloadState.value = DownloadState.Success(pending)
+                launchInstaller(context, pending)
+            } else {
+                Log.d(TAG, "[Update:RESUME] permission still not granted, preserving APK for retry")
+                _installState.value = UpdateInstallState.Idle
+                _downloadState.value = DownloadState.Idle
+                _statusNotice.value = "Update wasn't installed. You can try again when you're ready."
+            }
+        }
+    }
+
+    fun onPermissionDeniedByUser() {
+        Log.d(TAG, "[Update:PERMISSION_DENIED] user tapped Not Now")
+        _installState.value = UpdateInstallState.Idle
+        _downloadState.value = DownloadState.Idle
+        _statusNotice.value = "Update wasn't installed. You can try again when you're ready."
+    }
+
+    // -----------------------------------------------------------------------
+    // 8. Launch Android Package Installer via FileProvider
     // -----------------------------------------------------------------------
 
     fun launchInstaller(context: Context, apkFile: File) {
-        val authority = "${context.packageName}.fileprovider"
-        val contentUri = FileProvider.getUriForFile(context, authority, apkFile)
-
-        Log.d(TAG, "[Update:INSTALL] launching Android package installer")
-
-        val installIntent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(contentUri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val now = System.currentTimeMillis()
+        if (lastInstallLaunchTimestamp > 0L && now - lastInstallLaunchTimestamp < 2000L) {
+            Log.d(TAG, "[Update:INSTALL] throttled duplicate install launch")
+            return
         }
+        lastInstallLaunchTimestamp = now
 
-        context.startActivity(installIntent)
+        try {
+            val authority = "${context.packageName}.fileprovider"
+            val contentUri = FileProvider.getUriForFile(context, authority, apkFile)
 
-        // Reset state after handing off to system installer
-        _downloadState.value = DownloadState.Idle
+            Log.d(TAG, "[Update:INSTALL] launching Android package installer for $contentUri")
+
+            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(contentUri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+
+            context.startActivity(installIntent)
+            _installState.value = UpdateInstallState.Completed
+            _downloadState.value = DownloadState.Idle
+        } catch (e: Exception) {
+            Log.e(TAG, "[Update:INSTALL_FAILED] ${e.message}", e)
+            val errorMsg = "Unable to launch installer: ${e.message ?: "Unknown error"}"
+            _installState.value = UpdateInstallState.Failed(errorMsg)
+            _downloadState.value = DownloadState.Failed(errorMsg)
+        }
     }
 
     // -----------------------------------------------------------------------
-    // 6. Allow retry after failure
+    // 9. State reset helpers
     // -----------------------------------------------------------------------
 
     fun resetDownloadState() {
+        _installState.value = UpdateInstallState.Idle
         _downloadState.value = DownloadState.Idle
+        _statusNotice.value = null
     }
 
     fun resetUpdateState() {
         _updateCheckResult.value = UpdateCheckResult.NoUpdate
+        _installState.value = UpdateInstallState.Idle
         _downloadState.value = DownloadState.Idle
+        _statusNotice.value = null
+        pendingApkFile = null
     }
 
     // -----------------------------------------------------------------------
     // Helpers
     // -----------------------------------------------------------------------
 
-    private fun sha256Hex(file: File): String {
+    fun sha256Hex(file: File): String {
         val digest = MessageDigest.getInstance("SHA-256")
         file.inputStream().use { input ->
             val buffer = ByteArray(8192)

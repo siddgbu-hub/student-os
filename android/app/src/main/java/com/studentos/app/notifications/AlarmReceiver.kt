@@ -26,8 +26,46 @@ class AlarmReceiver : BroadcastReceiver() {
                 )
             }
             "study_break" -> {
+                val sessionId = entityId
                 val intervalMins = intent.getIntExtra(EXTRA_INTERVAL_MINS, 50)
-                NotificationHelper.showStudyBreakNotification(context, intervalMins)
+                val expectedRunningSecs = intent.getIntExtra(EXTRA_EXPECTED_RUNNING_SECS, intervalMins * 60)
+
+                // Authoritative Invariant Validation:
+                // 1. Session must exist
+                // 2. Session ID must match
+                // 3. State must be strictly RUNNING
+                // 4. Accumulated running duration must reach the required break threshold
+                val manager = com.studentos.app.ui.screens.study.StudySessionManager.getInstanceOrNull()
+                val currentState = manager?.sessionState?.value
+
+                if (currentState is com.studentos.app.ui.screens.study.SessionState.Running) {
+                    val currentSessionId = currentState.data.session.id
+                    val isMatchingSession = currentSessionId == sessionId ||
+                            sessionId.startsWith("local_") ||
+                            currentSessionId.startsWith("local_")
+
+                    if (isMatchingSession) {
+                        val currentElapsed = manager.calculateCurrentElapsed(currentState)
+                        if (currentElapsed >= expectedRunningSecs) {
+                            NotificationHelper.showStudyBreakNotification(context, intervalMins)
+                        } else {
+                            android.util.Log.d(
+                                "AlarmReceiver",
+                                "Break alarm dropped: accumulated running time ($currentElapsed s) < required threshold ($expectedRunningSecs s)"
+                            )
+                        }
+                    } else {
+                        android.util.Log.d(
+                            "AlarmReceiver",
+                            "Break alarm dropped: session ID mismatch (intent=$sessionId, current=$currentSessionId)"
+                        )
+                    }
+                } else {
+                    android.util.Log.d(
+                        "AlarmReceiver",
+                        "Break alarm dropped: session is not in RUNNING state (state=$currentState)"
+                    )
+                }
             }
             "subscription" -> {
                 val text = intent.getStringExtra(EXTRA_TEXT) ?: ""
@@ -50,5 +88,6 @@ class AlarmReceiver : BroadcastReceiver() {
         const val EXTRA_DATE_STR = "extra_date_str"
         const val EXTRA_SHOW_PRIVATE = "extra_show_private"
         const val EXTRA_INTERVAL_MINS = "extra_interval_mins"
+        const val EXTRA_EXPECTED_RUNNING_SECS = "extra_expected_running_secs"
     }
 }

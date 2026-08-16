@@ -636,6 +636,69 @@ export const AccountPage: React.FC = () => {
             ))}
           </div>
 
+          {/* SECTION: PLATFORM & APP ACCESS */}
+          <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: 'var(--spacing-xs) 0' }} />
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '700', color: 'var(--color-text-primary)' }}>Student OS on Web</h4>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                  Access from your desktop or laptop browser at student-os-19f.pages.dev
+                </p>
+              </div>
+              <a
+                href="https://student-os-19f.pages.dev"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  textDecoration: 'none',
+                  padding: '5px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-accent)',
+                  fontSize: '0.8rem',
+                  fontWeight: '600',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                Open Web Version ↗
+              </a>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '700', color: 'var(--color-text-primary)' }}>Student OS for Android</h4>
+                <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                  Install the mobile app for notifications, widgets, and background timer
+                </p>
+              </div>
+              <a
+                href="https://github.com/siddgbu-hub/student-os/releases/download/v1.0.3/StudentOS-v1.0.3.apk"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  textDecoration: 'none',
+                  padding: '5px 12px',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--color-bg-secondary)',
+                  border: '1px solid var(--color-border)',
+                  color: 'var(--color-accent)',
+                  fontSize: '0.8rem',
+                  fontWeight: '600',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                Get Android App ↗
+              </a>
+            </div>
+          </div>
+
           {/* SECTION 4: DATA & ACCOUNT DELETION */}
           <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: 'var(--spacing-xs) 0' }} />
 

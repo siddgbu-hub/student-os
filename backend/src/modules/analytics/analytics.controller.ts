@@ -1,6 +1,7 @@
 import { Hono, Context } from 'hono';
 import type { Env } from '../../index.js';
 import { createAuthMiddleware } from '../../middleware/auth.js';
+import { requireActiveSubscription } from '../../middleware/entitlement.js';
 import { AnalyticsRepository } from '../../db/analytics.repository.js';
 import { AnalyticsService } from './analytics.service.js';
 import { AnalyticsQuerySchema, TimePeriod } from '@student-os/shared';
@@ -14,7 +15,7 @@ export const analyticsRouter = new Hono<{
   };
 }>();
 
-analyticsRouter.use('*', createAuthMiddleware);
+analyticsRouter.use('*', createAuthMiddleware, requireActiveSubscription());
 
 type AnalyticsContext = Context<{
   Bindings: Env;

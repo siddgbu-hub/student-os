@@ -124,18 +124,22 @@ export class SubscriptionManagementService {
   }
 
   /**
-   * Helper to fetch plan by ID and verify validity for paid subscription.
+   * Helper to fetch plan by ID and verify validity.
    */
   private async getPlan(planId: string): Promise<PlanRow> {
-    if (planId !== 'monthly' && planId !== 'yearly') {
-      throw new SubscriptionDomainError(
-        SUBSCRIPTION_ERRORS.INVALID_PLAN,
-        `Invalid paid plan ID: ${planId}. Only 'monthly' and 'yearly' are valid for Pro subscriptions.`
-      );
-    }
     const stmt = this.db.prepare('SELECT * FROM plans WHERE plan_id = ?').bind(planId);
     const row = await stmt.first<PlanRow>();
-    if (!row || row.is_active !== 1) {
+    if (!row) {
+      if (planId === 'free_trial') {
+        return {
+          plan_id: 'free_trial',
+          name: '7-Day Free Trial',
+          price_cents: 0,
+          duration_days: 7,
+          features: JSON.stringify(ALL_STUDENT_OS_FEATURES),
+          is_active: 1,
+        };
+      }
       throw new SubscriptionDomainError(
         SUBSCRIPTION_ERRORS.PLAN_NOT_FOUND,
         `Plan not found or inactive: ${planId}`
@@ -179,6 +183,14 @@ export class SubscriptionManagementService {
     }
 
     await this.getAccount(accountId);
+
+    if ((planId as string) === 'free_trial' || (planId as string) === 'free') {
+      throw new SubscriptionDomainError(
+        SUBSCRIPTION_ERRORS.INVALID_PLAN,
+        `Cannot grant free trial or free plan via grantProAccess: ${planId}`
+      );
+    }
+
     const plan = await this.getPlan(planId);
 
     let durationDays = params.durationDays;
@@ -356,12 +368,12 @@ export class SubscriptionManagementService {
     const now = new Date();
     const startDate = now.toISOString();
 
-    // Determine target plan
-    let planId = currentEnt?.current_plan_id;
-    if (planId !== 'yearly') {
-      planId = 'monthly';
-    }
-    const plan = await this.getPlan(planId);
+    // Determine target plan & paid status based on current entitlement
+    const currentPlanId = currentEnt?.current_plan_id || 'free_trial';
+    const isPaid = currentEnt?.is_paid === 1 && currentPlanId !== 'free_trial' && currentPlanId !== 'free';
+    const targetPlanId = isPaid ? (currentPlanId === 'yearly' ? 'yearly' : 'monthly') : 'free_trial';
+    const plan = await this.getPlan(targetPlanId);
+    const source: 'manual' | 'trial' = isPaid ? 'manual' : 'trial';
 
     // Calculate extension expiry
     let newExpiryDate: string;
@@ -394,12 +406,13 @@ export class SubscriptionManagementService {
           subscription_id, account_id, plan_id, status, source,
           granted_by, start_date, expiry_date, cancelled_at,
           payment_reference, created_at, updated_at
-        ) VALUES (?, ?, ?, 'active', 'manual', ?, ?, ?, NULL, NULL, ?, ?)`
+        ) VALUES (?, ?, ?, 'active', ?, ?, ?, ?, NULL, NULL, ?, ?)`
       )
       .bind(
         subscriptionId,
         accountId,
         plan.plan_id,
+        source,
         adminAccountId,
         startDate,
         newExpiryDate,
@@ -414,11 +427,11 @@ export class SubscriptionManagementService {
         `INSERT INTO entitlements (
           entitlement_id, account_id, current_plan_id, status, is_paid,
           features, expires_at, last_verified_at, created_at, updated_at
-        ) VALUES (?, ?, ?, 'active', 1, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
         ON CONFLICT(account_id) DO UPDATE SET
           current_plan_id = excluded.current_plan_id,
           status = 'active',
-          is_paid = 1,
+          is_paid = excluded.is_paid,
           features = excluded.features,
           expires_at = excluded.expires_at,
           last_verified_at = excluded.last_verified_at,
@@ -428,6 +441,7 @@ export class SubscriptionManagementService {
         entitlementId,
         accountId,
         plan.plan_id,
+        isPaid ? 1 : 0,
         JSON.stringify(finalFeatures),
         newExpiryDate,
         startDate,
@@ -441,8 +455,11 @@ export class SubscriptionManagementService {
       reason: reason.trim(),
       durationDays,
       wasActive: Boolean(hasRemainingTime),
+      previousPlanId: currentEnt?.current_plan_id || null,
+      previousStatus: currentEnt?.status || null,
       previousExpiry: currentEnt?.expires_at || null,
       newExpiry: newExpiryDate,
+      isPaid,
       adminAccountId,
     };
 
@@ -472,7 +489,7 @@ export class SubscriptionManagementService {
       planId: plan.plan_id,
       planName: plan.name,
       status: 'active',
-      source: 'manual',
+      source,
       grantedBy: adminAccountId,
       startDate,
       expiryDate: newExpiryDate,
@@ -488,7 +505,7 @@ export class SubscriptionManagementService {
       currentPlanId: plan.plan_id,
       planName: plan.name,
       status: 'active',
-      isPaid: true,
+      isPaid,
       features: finalFeatures,
       expiresAt: newExpiryDate,
       lastVerifiedAt: startDate,

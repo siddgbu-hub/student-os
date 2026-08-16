@@ -514,6 +514,7 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
     }
 
     fun startTimer() {
+        StudyDebugLogger.logTimestampA()
         if (_uiState.value.activeSession != null && (_uiState.value.isTimerRunning || _uiState.value.isTimerPaused)) {
             _uiState.value = _uiState.value.copy(errorMessage = "A study session is already active or paused")
             return
@@ -532,15 +533,7 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
                 targetMinutes = _uiState.value.targetSessionDurationMinutes
             )
 
-            result.onSuccess { session ->
-                repository.getApplicationContext()?.let { ctx ->
-                    viewModelScope.launch {
-                        val prefs = repository.getUserPreferences().getOrNull()
-                        val intervalMins = prefs?.breakReminderIntervalMinutes ?: 50
-                        com.studentos.app.notifications.AlarmScheduler.scheduleStudyBreakReminder(ctx, session.id, intervalMins, prefs)
-                    }
-                }
-            }.onFailure { err ->
+            result.onFailure { err ->
                 _uiState.value = _uiState.value.copy(errorMessage = categorizeError(err))
             }
         }
@@ -554,11 +547,7 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(errorMessage = null)
             val res = sessionManager.pauseSession()
-            res.onSuccess { session ->
-                repository.getApplicationContext()?.let { ctx ->
-                    com.studentos.app.notifications.AlarmScheduler.cancelStudyBreakReminder(ctx, session.id)
-                }
-            }.onFailure { err ->
+            res.onFailure { err ->
                 _uiState.value = _uiState.value.copy(errorMessage = categorizeError(err))
             }
         }
@@ -572,15 +561,7 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(errorMessage = null)
             val res = sessionManager.resumeSession()
-            res.onSuccess { session ->
-                repository.getApplicationContext()?.let { ctx ->
-                    viewModelScope.launch {
-                        val prefs = repository.getUserPreferences().getOrNull()
-                        val intervalMins = prefs?.breakReminderIntervalMinutes ?: 50
-                        com.studentos.app.notifications.AlarmScheduler.scheduleStudyBreakReminder(ctx, session.id, intervalMins, prefs)
-                    }
-                }
-            }.onFailure { err ->
+            res.onFailure { err ->
                 _uiState.value = _uiState.value.copy(errorMessage = categorizeError(err))
             }
         }
@@ -601,14 +582,8 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
     fun cancelSession() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmittingAction = true, actionErrorMessage = null)
-            val activeSessionId = _uiState.value.activeSession?.id
             val res = sessionManager.cancelSession()
             res.onSuccess {
-                if (activeSessionId != null) {
-                    repository.getApplicationContext()?.let { ctx ->
-                        com.studentos.app.notifications.AlarmScheduler.cancelStudyBreakReminder(ctx, activeSessionId)
-                    }
-                }
                 _uiState.value = _uiState.value.copy(
                     isSubmittingAction = false,
                     isCancelSessionDialogOpen = false
@@ -627,7 +602,7 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
         if (_uiState.value.isEndingSession || _uiState.value.isSubmittingAction) {
             return
         }
-        val session = _uiState.value.activeSession ?: run {
+        if (_uiState.value.activeSession == null) {
             _uiState.value = _uiState.value.copy(errorMessage = "No active session to complete")
             return
         }
@@ -638,10 +613,6 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
                 isSubmittingAction = true,
                 errorMessage = null
             )
-
-            repository.getApplicationContext()?.let { ctx ->
-                com.studentos.app.notifications.AlarmScheduler.cancelStudyBreakReminder(ctx, session.id)
-            }
 
             val res = sessionManager.stopSession()
             res.onSuccess {

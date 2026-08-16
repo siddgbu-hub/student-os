@@ -607,6 +607,40 @@ describe('PHASE 2 — SubscriptionManagementService Comprehensive Unit Tests', (
       expect(result.entitlement.status).toBe('active');
       expect(result.entitlement.isPaid).toBe(true);
     });
+
+    it('9b. trial extension preserves free_trial plan, is_paid = false, and source = trial (no false premium badge)', async () => {
+      const trialExpiry = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // 2 days remaining in trial
+      mockDb.entitlements.set(STUDENT_ID, {
+        entitlement_id: 'ent-trial',
+        account_id: STUDENT_ID,
+        current_plan_id: 'free_trial',
+        status: 'active',
+        is_paid: 0,
+        features: JSON.stringify(ALL_STUDENT_OS_FEATURES),
+        expires_at: trialExpiry.toISOString(),
+        last_verified_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      const result = await service.extendSubscription({
+        accountId: STUDENT_ID,
+        durationDays: 1, // Extend by 1 day
+        reason: '1-day trial extension',
+        adminAccountId: ADMIN_ID,
+      });
+
+      // Verification: must remain free_trial and NOT become paid Pro
+      expect(result.entitlement.currentPlanId).toBe('free_trial');
+      expect(result.entitlement.isPaid).toBe(false);
+      expect(result.entitlement.status).toBe('active');
+      expect(result.subscription.planId).toBe('free_trial');
+      expect(result.subscription.source).toBe('trial');
+
+      const expectedExpiryMs = trialExpiry.getTime() + 1 * 24 * 60 * 60 * 1000;
+      const actualExpiryMs = new Date(result.entitlement.expiresAt!).getTime();
+      expect(Math.abs(actualExpiryMs - expectedExpiryMs)).toBeLessThan(2000);
+    });
   });
 
   describe('3. Change Plan (changePlan)', () => {

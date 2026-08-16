@@ -47,15 +47,58 @@ import com.studentos.app.data.model.UserPreferencesDto
 import com.studentos.app.data.model.UserProfileDto
 import com.studentos.app.data.model.VerifyOtpRequestDto
 import com.studentos.app.data.model.WeeklyPlanSummaryDto
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 class StudentOsRepository(
     private val apiClient: ApiClient,
     private val sessionManager: SessionManager,
     private val context: Context? = null
 ) {
+    private val repoScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val _entitlementState = MutableStateFlow<EntitlementDto?>(null)
+    val entitlementState: StateFlow<EntitlementDto?> = _entitlementState.asStateFlow()
+
+    init {
+        context?.let { ctx ->
+            try {
+                val cm = ctx.getSystemService(Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+                cm?.registerDefaultNetworkCallback(object : android.net.ConnectivityManager.NetworkCallback() {
+                    override fun onAvailable(network: android.net.Network) {
+                        repoScope.launch {
+                            getEntitlementStatus()
+                        }
+                    }
+                })
+            } catch (e: Exception) {
+                android.util.Log.w("StudentOS", "NetworkCallback registration failed: ${e.message}")
+            }
+        }
+    }
+
     val tokenFlow: Flow<String?> = sessionManager.tokenFlow
     val themeFlow: Flow<String> = sessionManager.themeFlow
+
+    fun markEntitlementExpired() {
+        _entitlementState.value = _entitlementState.value?.copy(status = "expired") ?: EntitlementDto(
+            entitlementId = "",
+            accountId = "",
+            currentPlanId = "free_trial",
+            status = "expired",
+            isPaid = false,
+            features = emptyList(),
+            expiresAt = null,
+            lastVerifiedAt = java.time.Instant.now().toString(),
+            createdAt = "",
+            updatedAt = ""
+        )
+    }
 
     suspend fun getDeviceId(): String = sessionManager.getOrCreateDeviceId()
 
@@ -854,15 +897,44 @@ class StudentOsRepository(
             val response = apiClient.entitlementApi.getEntitlementStatus()
             if (response.success && response.data != null) {
                 val entitlement = response.data
+                _entitlementState.value = entitlement
                 context?.let { ctx ->
                     com.studentos.app.notifications.SubscriptionExpiryScheduler.scheduleSubscriptionExpiryReminders(ctx, entitlement)
                 }
+
+                // Schedule authoritative revalidation right at known expiry boundary
+                entitlement.expiresAt?.let { expStr ->
+                    try {
+                        val expiryEpochMs = java.time.Instant.parse(expStr).toEpochMilli()
+                        val nowMs = System.currentTimeMillis()
+                        val diffMs = expiryEpochMs - nowMs
+                        if (diffMs in 1..86400000L) {
+                            repoScope.launch {
+                                kotlinx.coroutines.delay(diffMs + 1000L)
+                                getEntitlementStatus()
+                            }
+                        }
+                    } catch (e: Exception) {
+                        // ignore parse errors
+                    }
+                }
+
                 Result.success(entitlement)
             } else {
                 val err = response.error?.message ?: "Failed to fetch entitlement status"
+                val code = response.error?.code
+                if (code == "TRIAL_EXPIRED" || code == "SUBSCRIPTION_REQUIRED") {
+                    markEntitlementExpired()
+                }
                 android.util.Log.e("StudentOS", "getEntitlementStatus ERROR: $err")
                 Result.failure(Exception(err))
             }
+        } catch (e: retrofit2.HttpException) {
+            if (e.code() == 403) {
+                markEntitlementExpired()
+            }
+            android.util.Log.e("StudentOS", "getEntitlementStatus HTTP ${e.code()}", e)
+            Result.failure(e)
         } catch (e: Exception) {
             android.util.Log.e("StudentOS", "getEntitlementStatus EXCEPTION", e)
             Result.failure(e)

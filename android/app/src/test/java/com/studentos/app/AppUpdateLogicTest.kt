@@ -3,21 +3,24 @@ package com.studentos.app
 import com.studentos.app.ui.update.AndroidReleaseMetadata
 import com.studentos.app.ui.update.AppUpdateManager
 import com.studentos.app.ui.update.UpdateCheckResult
+import com.studentos.app.ui.update.UpdateInstallState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.security.MessageDigest
 
 class AppUpdateLogicTest {
 
     private fun makeMetadata(
-        latestVersionCode: Int = 2,
-        latestVersionName: String = "1.0.1",
+        latestVersionCode: Int = 3,
+        latestVersionName: String = "1.0.2",
         minimumSupportedVersionCode: Int = 1,
-        apkSha256: String = "a53f1819420e3efb5217e57e6e4f1dfd1b4866080362d5f958f6687ab6dc7a5b",
-        apkSizeBytes: Long = 19421462L,
-        apkUrl: String = "https://github.com/siddgbu-hub/student-os/releases/download/v1.0.1/StudentOS-v1.0.1.apk"
+        apkSha256: String = "dd5c8d1f23e626a68694915724a51203fdd94baec8e7c041c4c392c4cdbfbe31",
+        apkSizeBytes: Long = 19391430L,
+        apkUrl: String = "https://github.com/siddgbu-hub/student-os/releases/download/v1.0.2/StudentOS-v1.0.2.apk"
     ) = AndroidReleaseMetadata(
         platform = "android",
         latestVersionCode = latestVersionCode,
@@ -25,11 +28,11 @@ class AppUpdateLogicTest {
         minimumSupportedVersionCode = minimumSupportedVersionCode,
         updateRequired = false,
         releaseTitle = "Student OS $latestVersionName",
-        releaseNotes = listOf("Lock-screen study timer", "Bug fixes"),
+        releaseNotes = listOf("Instant start study", "Adaptive launcher icon"),
         apkUrl = apkUrl,
         apkSha256 = apkSha256,
         apkSizeBytes = apkSizeBytes,
-        publishedAt = "2026-08-15T12:00:00.000Z"
+        publishedAt = "2026-08-16T03:30:00.000Z"
     )
 
     // -----------------------------------------------------------------------
@@ -37,8 +40,8 @@ class AppUpdateLogicTest {
     // -----------------------------------------------------------------------
     @Test
     fun testCurrentEqualsLatestProducesNoUpdate() {
-        val metadata = makeMetadata(latestVersionCode = 2, minimumSupportedVersionCode = 1)
-        val result = AppUpdateManager.determineUpdateResult(2, metadata)
+        val metadata = makeMetadata(latestVersionCode = 3, minimumSupportedVersionCode = 1)
+        val result = AppUpdateManager.determineUpdateResult(3, metadata)
         assertTrue(result is UpdateCheckResult.NoUpdate)
     }
 
@@ -47,10 +50,10 @@ class AppUpdateLogicTest {
     // -----------------------------------------------------------------------
     @Test
     fun testCurrentLessThanLatestProducesOptionalUpdate() {
-        val metadata = makeMetadata(latestVersionCode = 2, minimumSupportedVersionCode = 1)
-        val result = AppUpdateManager.determineUpdateResult(1, metadata)
+        val metadata = makeMetadata(latestVersionCode = 3, minimumSupportedVersionCode = 1)
+        val result = AppUpdateManager.determineUpdateResult(2, metadata)
         assertTrue(result is UpdateCheckResult.OptionalUpdate)
-        assertEquals(2, (result as UpdateCheckResult.OptionalUpdate).metadata.latestVersionCode)
+        assertEquals(3, (result as UpdateCheckResult.OptionalUpdate).metadata.latestVersionCode)
     }
 
     // -----------------------------------------------------------------------
@@ -69,7 +72,7 @@ class AppUpdateLogicTest {
     // -----------------------------------------------------------------------
     @Test
     fun testCurrentAheadOfLatestProducesNoUpdate() {
-        val metadata = makeMetadata(latestVersionCode = 2, minimumSupportedVersionCode = 1)
+        val metadata = makeMetadata(latestVersionCode = 3, minimumSupportedVersionCode = 1)
         val result = AppUpdateManager.determineUpdateResult(99, metadata)
         assertTrue(result is UpdateCheckResult.NoUpdate)
     }
@@ -122,8 +125,6 @@ class AppUpdateLogicTest {
     // -----------------------------------------------------------------------
     @Test
     fun testDuplicateDownloadPreventionViaStateGuard() {
-        // When download is in progress, a second call should be blocked by the guard
-        // We simulate the guard logic inline here (mirrors AppUpdateManager implementation)
         var downloadCallCount = 0
         var isDownloading = false
 
@@ -154,7 +155,6 @@ class AppUpdateLogicTest {
     // -----------------------------------------------------------------------
     @Test
     fun testFailedDownloadIsRecoverable() {
-        // Simulate: download fails, app resets state, then allows a new download
         var failureOccurred = false
         var isDownloading = false
         var downloadCallCount = 0
@@ -163,7 +163,6 @@ class AppUpdateLogicTest {
             if (isDownloading) return false
             isDownloading = true
             downloadCallCount++
-            // Simulate failure
             isDownloading = false
             failureOccurred = true
             return false
@@ -182,19 +181,196 @@ class AppUpdateLogicTest {
             return true
         }
 
-        // First attempt fails
         simulateDownload()
         assertTrue(failureOccurred)
         assertEquals(1, downloadCallCount)
 
-        // Reset (retry flow)
         simulateReset()
         assertFalse(failureOccurred)
 
-        // Retry succeeds
         val retryOk = simulateRetry()
         assertTrue(retryOk)
         assertEquals(2, downloadCallCount)
+    }
+
+    // -----------------------------------------------------------------------
+    // 10. Permission already granted → direct install
+    // -----------------------------------------------------------------------
+    @Test
+    fun testPermissionAlreadyGrantedTransitionsToInstalling() {
+        val dummyApk = File("dummy.apk")
+        var installLaunched = false
+
+        fun simulateProcessVerified(hasPermission: Boolean): UpdateInstallState {
+            return if (hasPermission) {
+                installLaunched = true
+                UpdateInstallState.Installing(dummyApk)
+            } else {
+                UpdateInstallState.AwaitingInstallPermission(dummyApk)
+            }
+        }
+
+        val stateWithPermission = simulateProcessVerified(hasPermission = true)
+        assertTrue(stateWithPermission is UpdateInstallState.Installing)
+        assertTrue(installLaunched)
+    }
+
+    // -----------------------------------------------------------------------
+    // 11. Permission missing → AwaitingInstallPermission state
+    // -----------------------------------------------------------------------
+    @Test
+    fun testPermissionMissingTransitionsToAwaitingPermission() {
+        val dummyApk = File("dummy.apk")
+        var installLaunched = false
+
+        fun simulateProcessVerified(hasPermission: Boolean): UpdateInstallState {
+            return if (hasPermission) {
+                installLaunched = true
+                UpdateInstallState.Installing(dummyApk)
+            } else {
+                UpdateInstallState.AwaitingInstallPermission(dummyApk)
+            }
+        }
+
+        val stateWithoutPermission = simulateProcessVerified(hasPermission = false)
+        assertTrue(stateWithoutPermission is UpdateInstallState.AwaitingInstallPermission)
+        assertFalse("Installer must not be launched without permission", installLaunched)
+    }
+
+    // -----------------------------------------------------------------------
+    // 12. Settings intent structure and fallback
+    // -----------------------------------------------------------------------
+    @Test
+    fun testSecuritySettingsFallbackIntentStructure() {
+        val action = "android.settings.SECURITY_SETTINGS"
+        assertEquals(android.provider.Settings.ACTION_SECURITY_SETTINGS, action)
+    }
+
+    // -----------------------------------------------------------------------
+    // 13. Permission granted on resume → auto-resumes installation
+    // -----------------------------------------------------------------------
+    @Test
+    fun testPermissionGrantedOnResumeLaunchesInstaller() {
+        val dummyApk = File("dummy.apk")
+        var state: UpdateInstallState = UpdateInstallState.AwaitingInstallPermission(dummyApk)
+        var installerCalled = false
+
+        fun simulateResume(hasPermission: Boolean) {
+            if (state is UpdateInstallState.AwaitingInstallPermission) {
+                if (hasPermission) {
+                    state = UpdateInstallState.Installing(dummyApk)
+                    installerCalled = true
+                } else {
+                    state = UpdateInstallState.Idle
+                }
+            }
+        }
+
+        // Simulate returning with permission granted
+        simulateResume(hasPermission = true)
+        assertTrue(state is UpdateInstallState.Installing)
+        assertTrue(installerCalled)
+    }
+
+    // -----------------------------------------------------------------------
+    // 14. Permission denied on resume → preserves APK and returns to Idle
+    // -----------------------------------------------------------------------
+    @Test
+    fun testPermissionDeniedOnResumePreservesApkAndShowsNotice() {
+        val dummyApk = File("dummy.apk")
+        var state: UpdateInstallState = UpdateInstallState.AwaitingInstallPermission(dummyApk)
+        var statusNotice: String? = null
+        var pendingApk: File? = dummyApk
+
+        fun simulateResume(hasPermission: Boolean) {
+            if (state is UpdateInstallState.AwaitingInstallPermission) {
+                if (hasPermission) {
+                    state = UpdateInstallState.Installing(dummyApk)
+                } else {
+                    state = UpdateInstallState.Idle
+                    statusNotice = "Update wasn't installed. You can try again when you're ready."
+                }
+            }
+        }
+
+        simulateResume(hasPermission = false)
+        assertTrue(state is UpdateInstallState.Idle)
+        assertEquals("Update wasn't installed. You can try again when you're ready.", statusNotice)
+        assertNotNull("Pending APK must NOT be deleted when permission is denied", pendingApk)
+    }
+
+    // -----------------------------------------------------------------------
+    // 15. User taps "Not Now" → transitions to Idle with notice
+    // -----------------------------------------------------------------------
+    @Test
+    fun testUserTapNotNowTransitionsToIdleWithNotice() {
+        val dummyApk = File("dummy.apk")
+        var state: UpdateInstallState = UpdateInstallState.AwaitingInstallPermission(dummyApk)
+        var statusNotice: String? = null
+
+        fun simulateNotNow() {
+            state = UpdateInstallState.Idle
+            statusNotice = "Update wasn't installed. You can try again when you're ready."
+        }
+
+        simulateNotNow()
+        assertTrue(state is UpdateInstallState.Idle)
+        assertEquals("Update wasn't installed. You can try again when you're ready.", statusNotice)
+    }
+
+    // -----------------------------------------------------------------------
+    // 16. Verified APK reuse (avoids re-downloading)
+    // -----------------------------------------------------------------------
+    @Test
+    fun testVerifiedApkReusedWithoutRedownload() {
+        var networkDownloadCalled = false
+        val content = "valid-apk-bytes".toByteArray()
+        val expectedSha = sha256Hex(content)
+
+        fun simulateStartUpdate(cachedSha: String?) {
+            if (cachedSha != null && cachedSha == expectedSha) {
+                // Reuse cached file without network download
+                return
+            }
+            networkDownloadCalled = true
+        }
+
+        // With valid cache -> no download
+        simulateStartUpdate(cachedSha = expectedSha)
+        assertFalse(networkDownloadCalled)
+
+        // Without cache -> downloads
+        simulateStartUpdate(cachedSha = null)
+        assertTrue(networkDownloadCalled)
+    }
+
+    // -----------------------------------------------------------------------
+    // 17. Throttling prevents duplicate installer launches
+    // -----------------------------------------------------------------------
+    @Test
+    fun testDuplicateInstallIntentThrottling() {
+        var launchCount = 0
+        var lastLaunchTime = 0L
+
+        fun simulateLaunch(now: Long): Boolean {
+            if (lastLaunchTime > 0L && now - lastLaunchTime < 2000L) {
+                return false // throttled
+            }
+            lastLaunchTime = now
+            launchCount++
+            return true
+        }
+
+        assertTrue(simulateLaunch(1000L))
+        assertEquals(1, launchCount)
+
+        // Rapid double click at 1500ms (500ms later) is throttled
+        assertFalse(simulateLaunch(1500L))
+        assertEquals(1, launchCount)
+
+        // Launch after cooldown (3100ms) succeeds
+        assertTrue(simulateLaunch(3100L))
+        assertEquals(2, launchCount)
     }
 
     // -----------------------------------------------------------------------

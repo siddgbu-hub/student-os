@@ -37,6 +37,7 @@ class StudyForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        StudyDebugLogger.logTimestampD()
         val action = intent?.action
         StudyDebugLogger.logServiceLifecycle("onStartCommand", "action=$action")
 
@@ -62,6 +63,7 @@ class StudyForegroundService : Service() {
 
     private fun startForegroundWithNotification(state: SessionState.Running) {
         val notification = buildStudyNotification(state)
+        StudyDebugLogger.logTimestampE()
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 startForeground(
@@ -82,11 +84,15 @@ class StudyForegroundService : Service() {
             android.util.Log.e("StudyService", "Failed to start foreground service with type", e)
             startForeground(NOTIFICATION_ID, notification)
         }
+        StudyDebugLogger.logTimestampF()
     }
 
     private fun startTickerLoop() {
         tickerJob?.cancel()
         tickerJob = serviceScope.launch {
+            // First tick delay: startForeground() already posted initial notification with elapsed=0
+            delay(1000L)
+            var isFirstUpdate = true
             while (isActive) {
                 val manager = StudySessionManager.getInstanceOrNull()
                 val state = manager?.sessionState?.value
@@ -100,6 +106,10 @@ class StudyForegroundService : Service() {
                 try {
                     val updatedNotification = buildStudyNotification(state)
                     notificationManager?.notify(NOTIFICATION_ID, updatedNotification)
+                    if (isFirstUpdate) {
+                        StudyDebugLogger.logTimestampG()
+                        isFirstUpdate = false
+                    }
                 } catch (e: Exception) {
                     android.util.Log.e("StudyService", "Failed to update notification ticker", e)
                 }
@@ -170,6 +180,7 @@ class StudyForegroundService : Service() {
             .setContentIntent(contentPendingIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_PROGRESS)

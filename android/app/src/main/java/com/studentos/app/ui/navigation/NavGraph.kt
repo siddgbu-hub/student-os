@@ -4,12 +4,17 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -37,6 +42,7 @@ import com.studentos.app.ui.screens.study.StudyViewModel
 import com.studentos.app.ui.theme.StudentOsTheme
 import com.studentos.app.ui.update.AppUpdateDialog
 import com.studentos.app.ui.update.AppUpdateManager
+import kotlinx.coroutines.launch
 
 @Composable
 fun StudentOsApp(
@@ -78,8 +84,28 @@ fun StudentOsApp(
     )
     val showBars = isAuthenticated && currentRoute in authenticatedRoutes
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
+
+    DisposableEffect(lifecycleOwner, isAuthenticated) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME || event == Lifecycle.Event.ON_START) {
+                if (isAuthenticated) {
+                    coroutineScope.launch {
+                        repository.getEntitlementStatus()
+                    }
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     LaunchedEffect(isAuthenticated) {
         if (isAuthenticated) {
+            repository.getEntitlementStatus()
             dashboardViewModel.loadDashboardData()
             accountViewModel.loadAccountData()
             if (currentRoute == Screen.Login.route || currentRoute == Screen.OtpVerify.route || currentRoute == null) {

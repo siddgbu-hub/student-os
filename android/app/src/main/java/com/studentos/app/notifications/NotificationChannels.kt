@@ -39,6 +39,8 @@ object NotificationChannels {
             ).apply {
                 description = "Interval reminders during active study sessions"
                 enableVibration(true)
+                lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+                setShowBadge(true)
             }
 
             val subscriptionChannel = NotificationChannel(

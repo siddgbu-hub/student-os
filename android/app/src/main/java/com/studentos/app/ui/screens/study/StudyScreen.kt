@@ -66,9 +66,22 @@ import com.studentos.app.ui.components.LoadingState
 @Composable
 fun StudyScreen(viewModel: StudyViewModel) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val permissionLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        contract = androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { _ -> }
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
         viewModel.refreshActiveSession()
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            val hasNotifPerm = androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                android.Manifest.permission.POST_NOTIFICATIONS
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            if (!hasNotifPerm) {
+                permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
     }
 
     if (uiState.isLoading && uiState.subjects.isEmpty()) {
@@ -520,7 +533,18 @@ fun StudyScreen(viewModel: StudyViewModel) {
 
                     else -> {
                         Button(
-                            onClick = { viewModel.startTimer() },
+                            onClick = {
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                    val hasNotifPerm = androidx.core.content.ContextCompat.checkSelfPermission(
+                                        context,
+                                        android.Manifest.permission.POST_NOTIFICATIONS
+                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                    if (!hasNotifPerm) {
+                                        permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                                    }
+                                }
+                                viewModel.startTimer()
+                            },
                             enabled = uiState.selectedSubject != null && !uiState.isSubmittingAction,
                             modifier = Modifier
                                 .fillMaxWidth()

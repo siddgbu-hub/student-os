@@ -6,6 +6,7 @@ import com.studentos.app.data.model.StudySessionDto
 import com.studentos.app.data.model.SubjectDto
 import com.studentos.app.data.model.calculateElapsedSeconds
 import com.studentos.app.data.repository.StudentOsRepository
+import com.studentos.app.notifications.AlarmScheduler
 import com.studentos.app.widget.StudentOsWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -53,6 +54,36 @@ class StudySessionManager private constructor(
     private val _sessionErrors = MutableSharedFlow<Throwable>(extraBufferCapacity = 8)
     val sessionErrors: SharedFlow<Throwable> = _sessionErrors.asSharedFlow()
 
+    init {
+        scope.launch {
+            repository.entitlementState.collect { ent ->
+                if (ent?.status == "expired") {
+                    terminateSessionOnExpiry()
+                }
+            }
+        }
+    }
+
+    suspend fun terminateSessionOnExpiry() = stateMutex.withLock {
+        val current = _sessionState.value
+        if (current is SessionState.Running || current is SessionState.Paused) {
+            val elapsed = calculateCurrentElapsed(current)
+            val sessionId = when (current) {
+                is SessionState.Running -> current.data.session.id
+                is SessionState.Paused -> current.data.session.id
+                else -> null
+            }
+            finalizeSessionStop()
+            if (sessionId != null && !sessionId.startsWith("local_")) {
+                scope.launch {
+                    repository.stopStudySession(sessionId, elapsed)
+                }
+            }
+            StudyDebugLogger.logStopFailure(sessionId ?: "active_session", "TRIAL_EXPIRED", "Entitlement expired during active session")
+            _sessionErrors.tryEmit(IllegalStateException("TRIAL_EXPIRED: Access expired. Please upgrade to continue."))
+        }
+    }
+
     fun calculateCurrentElapsed(state: SessionState = _sessionState.value): Int {
         return when (state) {
             is SessionState.Running -> {
@@ -70,6 +101,11 @@ class StudySessionManager private constructor(
         chapter: ChapterDto?,
         targetMinutes: Int
     ): Result<StudySessionDto> = stateMutex.withLock {
+        val currentEntitlement = repository.entitlementState.value
+        if (currentEntitlement?.status == "expired") {
+            return Result.failure(IllegalStateException("TRIAL_EXPIRED: Your trial or subscription has expired. Please upgrade to continue."))
+        }
+
         val currentState = _sessionState.value
         if (currentState is SessionState.Running || currentState is SessionState.Paused || currentState is SessionState.Starting) {
             return Result.failure(IllegalStateException("A study session is already active or starting"))
@@ -101,9 +137,11 @@ class StudySessionManager private constructor(
 
         // 2. Immediately transition local state to RUNNING (Fast-path UX)
         _sessionState.value = SessionState.Running(runningData)
+        StudyDebugLogger.logTimestampB()
         StudyDebugLogger.logStart(optimisticId, subject.name, targetMinutes)
 
-        // 3. Immediately launch foreground service & lock-screen notification
+        // 3. Immediately launch foreground service & lock-screen notification FIRST
+        StudyDebugLogger.logTimestampC()
         StudyForegroundService.startService(
             context = context,
             sessionId = optimisticId,
@@ -112,16 +150,23 @@ class StudySessionManager private constructor(
             targetDurationMinutes = targetMinutes
         )
 
-        // 4. Immediately update widgets
+        // Schedule initial break reminder for optimistic session
+        scope.launch {
+            scheduleBreakReminderForRunningSession(optimisticId, 0)
+        }
+
+        // 4. Update widgets (non-blocking)
         StudentOsWidgetProvider.updateAllWidgets(context)
 
-        // 5. Asynchronously synchronize with backend
+        // 5. Asynchronously synchronize with backend in background
         scope.launch {
+            StudyDebugLogger.logTimestampH()
             val result = repository.startStudySession(subject.id, chapter?.id)
             stateMutex.withLock {
                 val stateAfterNetwork = _sessionState.value
                 result.fold(
                     onSuccess = { realSession ->
+                        cancelBreakReminderForSession(optimisticId)
                         when (stateAfterNetwork) {
                             is SessionState.Running -> {
                                 if (stateAfterNetwork.data.session.id == optimisticId) {
@@ -130,6 +175,10 @@ class StudySessionManager private constructor(
                                     _sessionState.value = SessionState.Running(updatedData)
                                     StudyDebugLogger.logStart(realSession.id, subject.name, targetMinutes)
                                     StudentOsWidgetProvider.updateAllWidgets(context)
+                                    val runningElapsed = calculateCurrentElapsed(SessionState.Running(updatedData))
+                                    scope.launch {
+                                        scheduleBreakReminderForRunningSession(realSession.id, runningElapsed)
+                                    }
                                 }
                             }
                             is SessionState.Paused -> {
@@ -159,6 +208,7 @@ class StudySessionManager private constructor(
                         }
                     },
                     onFailure = { err ->
+                        cancelBreakReminderForSession(optimisticId)
                         // Safely rollback to Idle if still on the optimistic session
                         val current = _sessionState.value
                         val isStillOptimistic = when (current) {
@@ -196,6 +246,9 @@ class StudySessionManager private constructor(
         val data = currentState.data
         val sessionId = data.session.id
 
+        // Cancel pending break alarm on pause
+        cancelBreakReminderForSession(sessionId)
+
         // Optimistically set paused in state holder
         val pausedData = data.copy(baseElapsedSeconds = elapsed)
         _sessionState.value = SessionState.Paused(pausedData, elapsed)
@@ -231,6 +284,9 @@ class StudySessionManager private constructor(
                         chapterName = data.chapterName,
                         targetDurationMinutes = data.targetDurationMinutes
                     )
+                    scope.launch {
+                        scheduleBreakReminderForRunningSession(sessionId, elapsed)
+                    }
                     Result.failure(err)
                 }
             }
@@ -238,6 +294,12 @@ class StudySessionManager private constructor(
     }
 
     suspend fun resumeSession(): Result<StudySessionDto> = stateMutex.withLock {
+        val currentEntitlement = repository.entitlementState.value
+        if (currentEntitlement?.status == "expired") {
+            terminateSessionOnExpiry()
+            return Result.failure(IllegalStateException("TRIAL_EXPIRED: Your trial or subscription has expired. Please upgrade to continue."))
+        }
+
         val currentState = _sessionState.value
         // Idempotency: If already running, return success immediately
         if (currentState is SessionState.Running) {
@@ -258,6 +320,11 @@ class StudySessionManager private constructor(
         )
         _sessionState.value = SessionState.Running(runningData)
         StudyDebugLogger.logResume(sessionId, data.session.pauseDurationSeconds)
+
+        // Reschedule break reminder for remaining running duration
+        scope.launch {
+            scheduleBreakReminderForRunningSession(sessionId, elapsed)
+        }
 
         // STRICT INVARIANT: Start foreground service and create exactly ONE notification on resume
         StudyForegroundService.startService(
@@ -280,10 +347,19 @@ class StudySessionManager private constructor(
                 Result.success(updatedSession)
             },
             onFailure = { err ->
-                if (err.message?.contains("already", ignoreCase = true) == true) {
+                val msg = err.message ?: ""
+                if (msg.contains("TRIAL_EXPIRED", ignoreCase = true) ||
+                    msg.contains("SUBSCRIPTION_REQUIRED", ignoreCase = true) ||
+                    msg.contains("403")
+                ) {
+                    repository.markEntitlementExpired()
+                    terminateSessionOnExpiry()
+                    Result.failure(err)
+                } else if (msg.contains("already", ignoreCase = true)) {
                     Result.success(data.session)
                 } else {
                     // Revert to paused if resume rejected
+                    cancelBreakReminderForSession(sessionId)
                     _sessionState.value = SessionState.Paused(data, elapsed)
                     StudyForegroundService.stopService(context)
                     Result.failure(err)
@@ -317,6 +393,9 @@ class StudySessionManager private constructor(
             else -> return Result.failure(IllegalStateException("Invalid state for completion"))
         }
         val sessionId = data.session.id
+
+        // Cancel pending break alarm on stop
+        cancelBreakReminderForSession(sessionId)
 
         // Enter ENDING state to guard against duplicate clicks or parallel requests
         _sessionState.value = SessionState.Ending(sessionId, elapsed)
@@ -370,6 +449,8 @@ class StudySessionManager private constructor(
             else -> return Result.failure(IllegalStateException("No active session to cancel"))
         }
 
+        cancelBreakReminderForSession(sessionId)
+
         val result = if (sessionId.startsWith("local_")) {
             Result.success(StudySessionDto(
                 id = sessionId,
@@ -389,9 +470,43 @@ class StudySessionManager private constructor(
     }
 
     private fun finalizeSessionStop() {
+        val current = _sessionState.value
+        val sid = when (current) {
+            is SessionState.Running -> current.data.session.id
+            is SessionState.Paused -> current.data.session.id
+            is SessionState.Ending -> current.sessionId
+            else -> null
+        }
+        if (sid != null) {
+            cancelBreakReminderForSession(sid)
+        }
         _sessionState.value = SessionState.Idle
         StudyForegroundService.stopService(context)
         StudentOsWidgetProvider.updateAllWidgets(context)
+    }
+
+    private suspend fun scheduleBreakReminderForRunningSession(sessionId: String, accumulatedRunningSecs: Int) {
+        try {
+            val prefs = repository.getUserPreferences().getOrNull()
+            val intervalMins = prefs?.breakReminderIntervalMinutes ?: 50
+            val intervalSecs = intervalMins * 60
+            val remainingSecs = (intervalSecs - accumulatedRunningSecs).coerceAtLeast(0)
+            if (remainingSecs > 0) {
+                AlarmScheduler.scheduleStudyBreakReminder(context, sessionId, remainingSecs, intervalMins, prefs)
+            } else {
+                AlarmScheduler.cancelStudyBreakReminder(context, sessionId)
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("StudySessionManager", "Failed to schedule break reminder", e)
+        }
+    }
+
+    private fun cancelBreakReminderForSession(sessionId: String) {
+        try {
+            AlarmScheduler.cancelStudyBreakReminder(context, sessionId)
+        } catch (e: Exception) {
+            android.util.Log.e("StudySessionManager", "Failed to cancel break reminder", e)
+        }
     }
 
     suspend fun reconcileBackendSession(
@@ -399,47 +514,53 @@ class StudySessionManager private constructor(
         subjects: List<SubjectDto>,
         chapters: List<ChapterDto>,
         targetMinutes: Int = 45
-    ) = stateMutex.withLock {
-        val current = _sessionState.value
-        // If an optimistic local session is actively starting, do not discard it before backend response returns
-        if (current is SessionState.Running && current.data.session.id.startsWith("local_")) {
-            return
-        }
-
-        if (backendSession == null || backendSession.status == "completed" || backendSession.status == "cancelled") {
-            if (_sessionState.value !is SessionState.Idle && _sessionState.value !is SessionState.Ending) {
-                finalizeSessionStop()
+    ) {
+        stateMutex.withLock {
+            val current = _sessionState.value
+            // If an optimistic local session is actively starting, do not discard it before backend response returns
+            if (current is SessionState.Running && current.data.session.id.startsWith("local_")) {
+                return@withLock
             }
-            return
-        }
 
-        val subject = subjects.find { it.id == backendSession.subjectId }
-        val chapter = chapters.find { it.id == backendSession.chapterId }
-        val subjectName = subject?.name ?: "Study Session"
-        val chapterName = chapter?.name
+            if (backendSession == null || backendSession.status == "completed" || backendSession.status == "cancelled") {
+                if (_sessionState.value !is SessionState.Idle && _sessionState.value !is SessionState.Ending) {
+                    finalizeSessionStop()
+                }
+                return@withLock
+            }
 
-        val elapsed = backendSession.calculateElapsedSeconds()
-        val isRunning = backendSession.status == "running" || backendSession.status == "in_progress"
-        val isPaused = backendSession.status == "paused"
+            val subject = subjects.find { it.id == backendSession.subjectId }
+            val chapter = chapters.find { it.id == backendSession.chapterId }
+            val subjectName = subject?.name ?: "Study Session"
+            val chapterName = chapter?.name
 
-        val now = System.currentTimeMillis()
-        val data = ActiveStudySessionData(
-            session = backendSession,
-            subjectName = subjectName,
-            chapterName = chapterName,
-            baseElapsedSeconds = elapsed,
-            activeStartedAtMs = now,
-            targetDurationMinutes = targetMinutes
-        )
+            val elapsed = backendSession.calculateElapsedSeconds()
+            val isRunning = backendSession.status == "running" || backendSession.status == "in_progress"
+            val isPaused = backendSession.status == "paused"
 
-        if (isRunning) {
-            _sessionState.value = SessionState.Running(data)
-            // Ensure foreground service is active with exactly ONE notification
-            StudyForegroundService.startService(context, backendSession.id, subjectName, chapterName, targetMinutes)
-        } else if (isPaused) {
-            _sessionState.value = SessionState.Paused(data, elapsed)
-            // STRICT INVARIANT: Ensure NO foreground service and NO notification exists when PAUSED
-            StudyForegroundService.stopService(context)
+            val now = System.currentTimeMillis()
+            val data = ActiveStudySessionData(
+                session = backendSession,
+                subjectName = subjectName,
+                chapterName = chapterName,
+                baseElapsedSeconds = elapsed,
+                activeStartedAtMs = now,
+                targetDurationMinutes = targetMinutes
+            )
+
+            if (isRunning) {
+                _sessionState.value = SessionState.Running(data)
+                // Ensure foreground service is active with exactly ONE notification
+                StudyForegroundService.startService(context, backendSession.id, subjectName, chapterName, targetMinutes)
+                scope.launch {
+                    scheduleBreakReminderForRunningSession(backendSession.id, elapsed)
+                }
+            } else if (isPaused) {
+                _sessionState.value = SessionState.Paused(data, elapsed)
+                // STRICT INVARIANT: Ensure NO foreground service and NO notification exists when PAUSED
+                StudyForegroundService.stopService(context)
+                cancelBreakReminderForSession(backendSession.id)
+            }
         }
     }
 
