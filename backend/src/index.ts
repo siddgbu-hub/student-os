@@ -9,6 +9,7 @@ import { accountRouter } from './modules/account/account.controller.js';
 import { goalRouter } from './modules/goal/goal.controller.js';
 import { entitlementRouter, paymentRouter } from './modules/entitlement/entitlement.controller.js';
 import { adminRouter } from './modules/admin/admin.controller.js';
+import { appRouter } from './modules/app/app.controller.js';
 
 export interface Env {
   DB: D1Database;
@@ -69,6 +70,7 @@ app.route('/api/v1/goal', goalRouter);
 app.route('/api/v1/entitlement', entitlementRouter);
 app.route('/api/v1/payment', paymentRouter);
 app.route('/api/v1/admin', adminRouter);
+app.route('/api/v1/app', appRouter);
 
 app.onError((err, c) => {
   return c.json(

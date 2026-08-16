@@ -35,6 +35,8 @@ import com.studentos.app.ui.screens.revision.RevisionViewModel
 import com.studentos.app.ui.screens.study.StudyScreen
 import com.studentos.app.ui.screens.study.StudyViewModel
 import com.studentos.app.ui.theme.StudentOsTheme
+import com.studentos.app.ui.update.AppUpdateDialog
+import com.studentos.app.ui.update.AppUpdateManager
 
 @Composable
 fun StudentOsApp(
@@ -100,7 +102,16 @@ fun StudentOsApp(
     val profileName = dashboardUiState.accountOverview?.profile?.fullName ?: ""
     val userInitial = if (profileName.isNotBlank()) profileName.first().uppercaseChar().toString() else "S"
 
+    // Check for updates exactly once when the composable enters the composition.
+    // Fails silently — never blocks app startup.
+    LaunchedEffect(Unit) {
+        AppUpdateManager.checkForUpdate()
+    }
+
     StudentOsTheme(appTheme = themeState) {
+        // Update dialog is rendered over the full app — will show whenever a new version is available
+        AppUpdateDialog()
+
         Scaffold(
             topBar = {
                 if (showBars) {

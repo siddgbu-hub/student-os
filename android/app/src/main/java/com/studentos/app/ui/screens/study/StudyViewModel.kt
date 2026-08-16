@@ -5,13 +5,13 @@ import androidx.lifecycle.viewModelScope
 import com.studentos.app.data.model.ChapterDto
 import com.studentos.app.data.model.StudySessionDto
 import com.studentos.app.data.model.SubjectDto
-import com.studentos.app.data.model.calculateElapsedSeconds
 import com.studentos.app.data.repository.StudentOsRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 data class StudyUiState(
@@ -26,6 +26,7 @@ data class StudyUiState(
     val remainingSeconds: Int = 2700,
     val isTimerRunning: Boolean = false,
     val isTimerPaused: Boolean = false,
+    val isEndingSession: Boolean = false,
     val isCreateSubjectDialogOpen: Boolean = false,
     val isEditSubjectDialogOpen: Boolean = false,
     val editingSubject: SubjectDto? = null,
@@ -48,12 +49,123 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
     private val _uiState = MutableStateFlow(StudyUiState())
     val uiState: StateFlow<StudyUiState> = _uiState.asStateFlow()
 
-    private var timerJob: Job? = null
-    private var sessionStartTimeMs: Long = 0L
-    private var baseElapsedSeconds: Int = 0
+    private var timerTickerJob: Job? = null
+    private val sessionManager: StudySessionManager by lazy {
+        val ctx = repository.getApplicationContext()
+            ?: throw IllegalStateException("Application context is required for StudySessionManager")
+        StudySessionManager.getInstance(ctx, repository)
+    }
 
     init {
         loadSubjects()
+        observeSessionManager()
+    }
+
+    private fun observeSessionManager() {
+        viewModelScope.launch {
+            sessionManager.sessionErrors.collect { err ->
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = categorizeError(err),
+                    isSubmittingAction = false
+                )
+            }
+        }
+        viewModelScope.launch {
+            sessionManager.sessionState.collect { sessionState ->
+                when (sessionState) {
+                    is SessionState.Idle -> {
+                        stopUiTimerTicker()
+                        val targetMins = _uiState.value.targetSessionDurationMinutes
+                        _uiState.value = _uiState.value.copy(
+                            activeSession = null,
+                            isTimerRunning = false,
+                            isTimerPaused = false,
+                            isEndingSession = false,
+                            elapsedSeconds = 0,
+                            remainingSeconds = targetMins * 60
+                        )
+                    }
+                    is SessionState.Starting -> {
+                        _uiState.value = _uiState.value.copy(
+                            isSubmittingAction = true,
+                            errorMessage = null
+                        )
+                    }
+                    is SessionState.Running -> {
+                        val data = sessionState.data
+                        val currentElapsed = sessionManager.calculateCurrentElapsed(sessionState)
+                        val targetSecs = data.targetDurationMinutes * 60
+                        val remaining = (targetSecs - currentElapsed).coerceAtLeast(0)
+
+                        val matchingSubject = _uiState.value.subjects.find { it.id == data.session.subjectId }
+                        val matchingChapter = _uiState.value.chapters.find { it.id == data.session.chapterId }
+
+                        _uiState.value = _uiState.value.copy(
+                            activeSession = data.session,
+                            selectedSubject = matchingSubject ?: _uiState.value.selectedSubject,
+                            selectedChapter = matchingChapter ?: _uiState.value.selectedChapter,
+                            targetSessionDurationMinutes = data.targetDurationMinutes,
+                            isTimerRunning = true,
+                            isTimerPaused = false,
+                            isEndingSession = false,
+                            isSubmittingAction = false,
+                            elapsedSeconds = currentElapsed,
+                            remainingSeconds = remaining
+                        )
+                        startUiTimerTicker()
+                    }
+                    is SessionState.Paused -> {
+                        stopUiTimerTicker()
+                        val data = sessionState.data
+                        val elapsed = sessionState.pausedElapsedSeconds
+                        val targetSecs = data.targetDurationMinutes * 60
+                        val remaining = (targetSecs - elapsed).coerceAtLeast(0)
+
+                        _uiState.value = _uiState.value.copy(
+                            activeSession = data.session,
+                            isTimerRunning = false,
+                            isTimerPaused = true,
+                            isEndingSession = false,
+                            isSubmittingAction = false,
+                            elapsedSeconds = elapsed,
+                            remainingSeconds = remaining
+                        )
+                    }
+                    is SessionState.Ending -> {
+                        stopUiTimerTicker()
+                        _uiState.value = _uiState.value.copy(
+                            isEndingSession = true,
+                            isSubmittingAction = true,
+                            isTimerRunning = false,
+                            isTimerPaused = false,
+                            elapsedSeconds = sessionState.finalDurationSeconds
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun startUiTimerTicker() {
+        if (timerTickerJob?.isActive == true) return
+        timerTickerJob = viewModelScope.launch {
+            while (isActive && _uiState.value.isTimerRunning) {
+                delay(500L)
+                val currentElapsed = sessionManager.calculateCurrentElapsed()
+                val targetSecs = _uiState.value.targetSessionDurationMinutes * 60
+                val remaining = (targetSecs - currentElapsed).coerceAtLeast(0)
+
+                _uiState.value = _uiState.value.copy(
+                    elapsedSeconds = currentElapsed,
+                    remainingSeconds = remaining
+                )
+            }
+        }
+    }
+
+    private fun stopUiTimerTicker() {
+        timerTickerJob?.cancel()
+        timerTickerJob = null
     }
 
     fun loadSubjects() {
@@ -75,7 +187,7 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
                 }
                 checkActiveBackendSession()
             }.onFailure { err: Throwable ->
-                _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = err.message)
+                _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = categorizeError(err))
             }
         }
     }
@@ -88,34 +200,18 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
         viewModelScope.launch {
             val activeRes = repository.getActiveStudySession()
             activeRes.onSuccess { session ->
-                if (session != null) {
-                    val matchingSubject = _uiState.value.subjects.find { it.id == session.subjectId }
-                    baseElapsedSeconds = session.calculateElapsedSeconds()
-                    val isRunning = session.status == "running" || session.status == "in_progress"
-                    val isPaused = session.status == "paused"
-                    
-                    val targetMins = _uiState.value.targetSessionDurationMinutes
-                    val initialRemaining = ((targetMins * 60) - baseElapsedSeconds).coerceAtLeast(0)
-
-                    _uiState.value = _uiState.value.copy(
-                        activeSession = session,
-                        selectedSubject = matchingSubject ?: _uiState.value.selectedSubject,
-                        isTimerRunning = isRunning,
-                        isTimerPaused = isPaused,
-                        elapsedSeconds = baseElapsedSeconds,
-                        remainingSeconds = initialRemaining
-                    )
-                    if (isRunning) {
-                        sessionStartTimeMs = System.currentTimeMillis()
-                        startLocalTimerCount()
-                    }
-                }
+                sessionManager.reconcileBackendSession(
+                    backendSession = session,
+                    subjects = _uiState.value.subjects,
+                    chapters = _uiState.value.chapters,
+                    targetMinutes = _uiState.value.targetSessionDurationMinutes
+                )
             }
         }
     }
 
     fun selectSubject(subject: SubjectDto) {
-        if (_uiState.value.isTimerRunning || _uiState.value.isTimerPaused) {
+        if (_uiState.value.isTimerRunning || _uiState.value.isTimerPaused || _uiState.value.isEndingSession) {
             _uiState.value = _uiState.value.copy(errorMessage = "Cannot change subject during an active session")
             return
         }
@@ -124,7 +220,7 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
     }
 
     fun selectChapter(chapter: ChapterDto?) {
-        if (_uiState.value.isTimerRunning || _uiState.value.isTimerPaused) return
+        if (_uiState.value.isTimerRunning || _uiState.value.isTimerPaused || _uiState.value.isEndingSession) return
         _uiState.value = _uiState.value.copy(selectedChapter = chapter)
     }
 
@@ -156,13 +252,15 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmittingAction = true, actionErrorMessage = null)
             val res = repository.createSubject(name.trim())
-            res.onSuccess { newSub ->
+            res.onSuccess { newSubj ->
+                val updatedList = _uiState.value.subjects + newSubj
                 _uiState.value = _uiState.value.copy(
                     isSubmittingAction = false,
                     isCreateSubjectDialogOpen = false,
-                    selectedSubject = newSub
+                    subjects = updatedList,
+                    selectedSubject = newSubj
                 )
-                loadSubjects()
+                loadChaptersForSubject(newSubj.id)
             }.onFailure { err: Throwable ->
                 _uiState.value = _uiState.value.copy(
                     isSubmittingAction = false,
@@ -197,14 +295,16 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmittingAction = true, actionErrorMessage = null)
             val res = repository.updateSubject(subject.id, name.trim())
-            res.onSuccess { updatedSub ->
+            res.onSuccess { updatedSubj ->
+                val updatedList = _uiState.value.subjects.map { if (it.id == updatedSubj.id) updatedSubj else it }
+                val updatedSelected = if (_uiState.value.selectedSubject?.id == updatedSubj.id) updatedSubj else _uiState.value.selectedSubject
                 _uiState.value = _uiState.value.copy(
                     isSubmittingAction = false,
                     isEditSubjectDialogOpen = false,
                     editingSubject = null,
-                    selectedSubject = updatedSub
+                    subjects = updatedList,
+                    selectedSubject = updatedSelected
                 )
-                loadSubjects()
             }.onFailure { err: Throwable ->
                 _uiState.value = _uiState.value.copy(
                     isSubmittingAction = false,
@@ -236,13 +336,20 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
             _uiState.value = _uiState.value.copy(isSubmittingAction = true, actionErrorMessage = null)
             val res = repository.deleteSubject(subject.id)
             res.onSuccess {
+                val updatedList = _uiState.value.subjects.filter { it.id != subject.id }
+                val nextSel = updatedList.firstOrNull()
                 _uiState.value = _uiState.value.copy(
                     isSubmittingAction = false,
                     isDeleteSubjectDialogOpen = false,
                     deletingSubject = null,
-                    selectedSubject = null
+                    subjects = updatedList,
+                    selectedSubject = nextSel
                 )
-                loadSubjects()
+                if (nextSel != null) {
+                    loadChaptersForSubject(nextSel.id)
+                } else {
+                    _uiState.value = _uiState.value.copy(chapters = emptyList(), selectedChapter = null)
+                }
             }.onFailure { err: Throwable ->
                 _uiState.value = _uiState.value.copy(
                     isSubmittingAction = false,
@@ -398,7 +505,7 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
     }
 
     fun setTargetDuration(minutes: Int) {
-        if (_uiState.value.isTimerRunning || _uiState.value.isTimerPaused) return
+        if (_uiState.value.isTimerRunning || _uiState.value.isTimerPaused || _uiState.value.isEndingSession) return
         val targetSecs = minutes * 60
         _uiState.value = _uiState.value.copy(
             targetSessionDurationMinutes = minutes,
@@ -419,12 +526,13 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(errorMessage = null)
-            val result = repository.startStudySession(subject.id, _uiState.value.selectedChapter?.id)
+            val result = sessionManager.startSession(
+                subject = subject,
+                chapter = _uiState.value.selectedChapter,
+                targetMinutes = _uiState.value.targetSessionDurationMinutes
+            )
+
             result.onSuccess { session ->
-                sessionStartTimeMs = System.currentTimeMillis()
-                baseElapsedSeconds = 0
-                val targetSecs = _uiState.value.targetSessionDurationMinutes * 60
-                
                 repository.getApplicationContext()?.let { ctx ->
                     viewModelScope.launch {
                         val prefs = repository.getUserPreferences().getOrNull()
@@ -432,83 +540,54 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
                         com.studentos.app.notifications.AlarmScheduler.scheduleStudyBreakReminder(ctx, session.id, intervalMins, prefs)
                     }
                 }
-
-                _uiState.value = _uiState.value.copy(
-                    activeSession = session,
-                    isTimerRunning = true,
-                    isTimerPaused = false,
-                    elapsedSeconds = 0,
-                    remainingSeconds = targetSecs
-                )
-                startLocalTimerCount()
-            }.onFailure { err: Throwable ->
-                _uiState.value = _uiState.value.copy(errorMessage = err.message ?: "Failed to start study session")
+            }.onFailure { err ->
+                _uiState.value = _uiState.value.copy(errorMessage = categorizeError(err))
             }
         }
     }
 
     fun pauseTimer() {
-        if (!_uiState.value.isTimerRunning || _uiState.value.isTimerPaused) {
-            _uiState.value = _uiState.value.copy(errorMessage = "Session cannot be paused in current state")
+        if (!_uiState.value.isTimerRunning || _uiState.value.isTimerPaused || _uiState.value.isEndingSession) {
             return
         }
-        val session = _uiState.value.activeSession ?: return
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(errorMessage = null)
-            timerJob?.cancel()
-            baseElapsedSeconds = _uiState.value.elapsedSeconds
-            
-            val res = repository.pauseStudySession(session.id)
-            res.onSuccess { updatedSession ->
+            val res = sessionManager.pauseSession()
+            res.onSuccess { session ->
                 repository.getApplicationContext()?.let { ctx ->
                     com.studentos.app.notifications.AlarmScheduler.cancelStudyBreakReminder(ctx, session.id)
                 }
-                _uiState.value = _uiState.value.copy(
-                    activeSession = updatedSession,
-                    isTimerRunning = false,
-                    isTimerPaused = true,
-                    elapsedSeconds = baseElapsedSeconds
-                )
-            }.onFailure { err: Throwable ->
-                startLocalTimerCount()
-                _uiState.value = _uiState.value.copy(errorMessage = err.message ?: "Failed to pause session")
+            }.onFailure { err ->
+                _uiState.value = _uiState.value.copy(errorMessage = categorizeError(err))
             }
         }
     }
 
     fun resumeTimer() {
-        if (_uiState.value.isTimerRunning) {
+        if (_uiState.value.isTimerRunning || _uiState.value.isEndingSession) {
             return
         }
-        val session = _uiState.value.activeSession ?: return
 
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(errorMessage = null)
-            val res = repository.resumeStudySession(session.id)
-            res.onSuccess { updatedSession ->
-                sessionStartTimeMs = System.currentTimeMillis()
+            val res = sessionManager.resumeSession()
+            res.onSuccess { session ->
                 repository.getApplicationContext()?.let { ctx ->
                     viewModelScope.launch {
                         val prefs = repository.getUserPreferences().getOrNull()
                         val intervalMins = prefs?.breakReminderIntervalMinutes ?: 50
-                        com.studentos.app.notifications.AlarmScheduler.scheduleStudyBreakReminder(ctx, updatedSession.id, intervalMins, prefs)
+                        com.studentos.app.notifications.AlarmScheduler.scheduleStudyBreakReminder(ctx, session.id, intervalMins, prefs)
                     }
                 }
-                _uiState.value = _uiState.value.copy(
-                    activeSession = updatedSession,
-                    isTimerRunning = true,
-                    isTimerPaused = false
-                )
-                startLocalTimerCount()
-            }.onFailure { err: Throwable ->
-                _uiState.value = _uiState.value.copy(errorMessage = err.message ?: "Failed to resume session")
+            }.onFailure { err ->
+                _uiState.value = _uiState.value.copy(errorMessage = categorizeError(err))
             }
         }
     }
 
     fun openCancelSessionDialog() {
-        if (_uiState.value.activeSession == null) {
+        if (_uiState.value.activeSession == null || _uiState.value.isEndingSession) {
             _uiState.value = _uiState.value.copy(errorMessage = "No active session to cancel")
             return
         }
@@ -520,83 +599,88 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
     }
 
     fun cancelSession() {
-        val session = _uiState.value.activeSession ?: run {
-            _uiState.value = _uiState.value.copy(isCancelSessionDialogOpen = false, errorMessage = "No active session to cancel")
-            return
-        }
-
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSubmittingAction = true, actionErrorMessage = null)
-            val res = repository.cancelStudySession(session.id)
+            val activeSessionId = _uiState.value.activeSession?.id
+            val res = sessionManager.cancelSession()
             res.onSuccess {
-                timerJob?.cancel()
-                baseElapsedSeconds = 0
-                val defaultTargetSecs = _uiState.value.targetSessionDurationMinutes * 60
-                repository.getApplicationContext()?.let { ctx ->
-                    com.studentos.app.notifications.AlarmScheduler.cancelStudyBreakReminder(ctx, session.id)
+                if (activeSessionId != null) {
+                    repository.getApplicationContext()?.let { ctx ->
+                        com.studentos.app.notifications.AlarmScheduler.cancelStudyBreakReminder(ctx, activeSessionId)
+                    }
                 }
                 _uiState.value = _uiState.value.copy(
                     isSubmittingAction = false,
-                    isCancelSessionDialogOpen = false,
-                    activeSession = null,
-                    isTimerRunning = false,
-                    isTimerPaused = false,
-                    elapsedSeconds = 0,
-                    remainingSeconds = defaultTargetSecs
+                    isCancelSessionDialogOpen = false
                 )
-            }.onFailure { err: Throwable ->
+            }.onFailure { err ->
                 _uiState.value = _uiState.value.copy(
                     isSubmittingAction = false,
-                    actionErrorMessage = err.message ?: "Failed to cancel study session"
+                    actionErrorMessage = categorizeError(err)
                 )
             }
         }
     }
 
     fun stopTimer() {
+        // Explicit guard against multiple/rapid Stop clicks
+        if (_uiState.value.isEndingSession || _uiState.value.isSubmittingAction) {
+            return
+        }
         val session = _uiState.value.activeSession ?: run {
             _uiState.value = _uiState.value.copy(errorMessage = "No active session to complete")
             return
         }
-        val duration = _uiState.value.elapsedSeconds
 
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(errorMessage = null)
-            timerJob?.cancel()
-            val res = repository.stopStudySession(session.id, duration)
+            _uiState.value = _uiState.value.copy(
+                isEndingSession = true,
+                isSubmittingAction = true,
+                errorMessage = null
+            )
+
+            repository.getApplicationContext()?.let { ctx ->
+                com.studentos.app.notifications.AlarmScheduler.cancelStudyBreakReminder(ctx, session.id)
+            }
+
+            val res = sessionManager.stopSession()
             res.onSuccess {
-                baseElapsedSeconds = 0
-                val defaultTargetSecs = _uiState.value.targetSessionDurationMinutes * 60
-                repository.getApplicationContext()?.let { ctx ->
-                    com.studentos.app.notifications.AlarmScheduler.cancelStudyBreakReminder(ctx, session.id)
-                }
                 _uiState.value = _uiState.value.copy(
-                    activeSession = null,
-                    isTimerRunning = false,
-                    isTimerPaused = false,
-                    elapsedSeconds = 0,
-                    remainingSeconds = defaultTargetSecs
+                    isEndingSession = false,
+                    isSubmittingAction = false
                 )
-            }.onFailure { err: Throwable ->
-                _uiState.value = _uiState.value.copy(errorMessage = err.message ?: "Failed to complete session")
+            }.onFailure { err ->
+                _uiState.value = _uiState.value.copy(
+                    isEndingSession = false,
+                    isSubmittingAction = false,
+                    errorMessage = categorizeError(err)
+                )
             }
         }
     }
 
-    private fun startLocalTimerCount() {
-        timerJob?.cancel()
-        timerJob = viewModelScope.launch {
-            while (_uiState.value.isTimerRunning) {
-                delay(500L)
-                val diffSecs = ((System.currentTimeMillis() - sessionStartTimeMs) / 1000).toInt()
-                val currentElapsed = baseElapsedSeconds + diffSecs
-                val targetSecs = _uiState.value.targetSessionDurationMinutes * 60
-                val currentRemaining = (targetSecs - currentElapsed).coerceAtLeast(0)
-
-                _uiState.value = _uiState.value.copy(
-                    elapsedSeconds = currentElapsed,
-                    remainingSeconds = currentRemaining
-                )
+    private fun categorizeError(err: Throwable): String {
+        val msg = err.message ?: ""
+        return when {
+            msg.contains("401", ignoreCase = true) ||
+            msg.contains("unauthorized", ignoreCase = true) ||
+            msg.contains("expired", ignoreCase = true) ||
+            msg.contains("AUTH_", ignoreCase = true) -> {
+                "Your session has expired. Please sign in again."
+            }
+            msg.contains("Unable to resolve host", ignoreCase = true) ||
+            msg.contains("ConnectException", ignoreCase = true) ||
+            msg.contains("timeout", ignoreCase = true) ||
+            msg.contains("Failed to connect", ignoreCase = true) ||
+            msg.contains("No address associated", ignoreCase = true) ||
+            msg.contains("SocketTimeout", ignoreCase = true) -> {
+                "Couldn't reach Student OS. Check your connection and try again."
+            }
+            msg.contains("SESSION_NOT_FOUND", ignoreCase = true) -> {
+                "Study session could not be found or was already ended."
+            }
+            else -> {
+                "Something went wrong while saving your study session."
             }
         }
     }

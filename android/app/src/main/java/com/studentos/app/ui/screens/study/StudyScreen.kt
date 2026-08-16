@@ -431,6 +431,7 @@ fun StudyScreen(viewModel: StudyViewModel) {
                         ) {
                             OutlinedButton(
                                 onClick = { viewModel.pauseTimer() },
+                                enabled = !uiState.isSubmittingAction && !uiState.isEndingSession,
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(50.dp),
@@ -443,15 +444,22 @@ fun StudyScreen(viewModel: StudyViewModel) {
                             }
                             Button(
                                 onClick = { viewModel.stopTimer() },
+                                enabled = !uiState.isSubmittingAction && !uiState.isEndingSession,
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(50.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Complete", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                                if (uiState.isEndingSession) {
+                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Ending...", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                                } else {
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Complete", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                                }
                             }
                         }
                     }
@@ -463,6 +471,7 @@ fun StudyScreen(viewModel: StudyViewModel) {
                         ) {
                             Button(
                                 onClick = { viewModel.resumeTimer() },
+                                enabled = !uiState.isSubmittingAction && !uiState.isEndingSession,
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(50.dp),
@@ -475,20 +484,28 @@ fun StudyScreen(viewModel: StudyViewModel) {
                             }
                             Button(
                                 onClick = { viewModel.stopTimer() },
+                                enabled = !uiState.isSubmittingAction && !uiState.isEndingSession,
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(50.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Complete", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                                if (uiState.isEndingSession) {
+                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Ending...", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                                } else {
+                                    Icon(Icons.Default.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Complete", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 14.sp)
+                                }
                             }
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         OutlinedButton(
                             onClick = { viewModel.openCancelSessionDialog() },
+                            enabled = !uiState.isSubmittingAction && !uiState.isEndingSession,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(44.dp),
@@ -504,16 +521,22 @@ fun StudyScreen(viewModel: StudyViewModel) {
                     else -> {
                         Button(
                             onClick = { viewModel.startTimer() },
-                            enabled = uiState.selectedSubject != null,
+                            enabled = uiState.selectedSubject != null && !uiState.isSubmittingAction,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(52.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Start Study Session", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                            if (uiState.isSubmittingAction) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Starting...", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                            } else {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Start Study Session", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 15.sp)
+                            }
                         }
                     }
                 }

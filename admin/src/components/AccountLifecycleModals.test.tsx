@@ -346,4 +346,166 @@ describe('Student Account Lifecycle Modals & Danger Zone Tests', () => {
       });
     });
   });
+
+  describe('6. Lifecycle Modal Portal Layering', () => {
+    it('DeleteAccountModal renders into document.body via portal with z-60 class', () => {
+      render(
+        <DeleteAccountModal
+          isOpen={true}
+          accountId="student-acc-123"
+          studentName="Aarav Patel"
+          studentEmail="student@example.com"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />
+      );
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeDefined();
+      // Portal renders into document.body
+      expect(dialog.parentElement).toBe(document.body);
+      // Has z-60 class for layering above the z-50 drawer
+      expect(dialog.className).toContain('z-60');
+    });
+
+    it('DeactivateAccountModal renders into document.body via portal with z-60 class', () => {
+      render(
+        <DeactivateAccountModal
+          isOpen={true}
+          accountId="student-acc-123"
+          studentName="Aarav Patel"
+          studentEmail="student@example.com"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />
+      );
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeDefined();
+      expect(dialog.parentElement).toBe(document.body);
+      expect(dialog.className).toContain('z-60');
+    });
+
+    it('ReactivateAccountModal renders into document.body via portal with z-60 class', () => {
+      render(
+        <ReactivateAccountModal
+          isOpen={true}
+          accountId="student-acc-123"
+          studentName="Aarav Patel"
+          studentEmail="student@example.com"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />
+      );
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeDefined();
+      expect(dialog.parentElement).toBe(document.body);
+      expect(dialog.className).toContain('z-60');
+    });
+
+    it('RevokeAllSessionsModal renders into document.body via portal with z-60 class', () => {
+      render(
+        <RevokeAllSessionsModal
+          isOpen={true}
+          accountId="student-acc-123"
+          studentName="Aarav Patel"
+          studentEmail="student@example.com"
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />
+      );
+
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeDefined();
+      expect(dialog.parentElement).toBe(document.body);
+      expect(dialog.className).toContain('z-60');
+    });
+  });
+
+  describe('7. Danger Zone Button Opens Corresponding Modal', () => {
+    it('clicking Delete Account Permanently opens DeleteAccountModal', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: mockActiveDetail }),
+      });
+      globalThis.fetch = mockFetch as any;
+
+      render(<UserDetailDrawer accountId="student-acc-123" onClose={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /delete account permanently/i })).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /delete account permanently/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('DELETE ACCOUNT PERMANENTLY?')).toBeDefined();
+      });
+    });
+
+    it('clicking Deactivate Account opens DeactivateAccountModal', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: mockActiveDetail }),
+      });
+      globalThis.fetch = mockFetch as any;
+
+      render(<UserDetailDrawer accountId="student-acc-123" onClose={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /deactivate account/i })).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /deactivate account/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Deactivate Account?')).toBeDefined();
+      });
+    });
+
+    it('clicking Revoke All Sessions opens RevokeAllSessionsModal', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: mockActiveDetail }),
+      });
+      globalThis.fetch = mockFetch as any;
+
+      render(<UserDetailDrawer accountId="student-acc-123" onClose={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /revoke all sessions/i })).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /revoke all sessions/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Revoke All Sessions?')).toBeDefined();
+      });
+    });
+
+    it('clicking Reactivate Account on suspended account opens ReactivateAccountModal', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: mockSuspendedDetail }),
+      });
+      globalThis.fetch = mockFetch as any;
+
+      render(<UserDetailDrawer accountId="student-acc-123" onClose={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /reactivate account/i })).toBeDefined();
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /reactivate account/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText('Reactivate Account?')).toBeDefined();
+      });
+    });
+  });
 });

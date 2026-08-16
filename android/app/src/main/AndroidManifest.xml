@@ -4,9 +4,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
         android:name=".StudentOsApplication"
@@ -33,6 +36,25 @@
                 <data android:scheme="studentos" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".ui.screens.study.StudyForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="study_session_timer" />
+        </service>
+
+        <receiver
+            android:name=".ui.screens.study.StudyNotificationReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.studentos.app.action.STUDY_PAUSE" />
+                <action android:name="com.studentos.app.action.STUDY_RESUME" />
+                <action android:name="com.studentos.app.action.STUDY_STOP" />
+            </intent-filter>
+        </receiver>
 
         <receiver
             android:name=".notifications.BootReceiver"
@@ -64,6 +86,17 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/student_os_widget_info" />
         </receiver>
+
+        <!-- FileProvider for APK update installer (content:// URI only, never file://) -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths" />
+        </provider>
 
     </application>
 

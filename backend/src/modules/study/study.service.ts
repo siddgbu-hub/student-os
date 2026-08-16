@@ -134,6 +134,10 @@ export class StudyService {
     if (!session) {
       throw new Error('SESSION_NOT_FOUND');
     }
+    // Idempotent: if already paused, return current session DTO successfully
+    if (session.status === 'paused') {
+      return this.mapSessionToDTO(session);
+    }
     if (session.status !== 'running') {
       throw new Error('SESSION_NOT_RUNNING');
     }
@@ -160,6 +164,10 @@ export class StudyService {
     const session = await this.repo.findSessionById(sessionId, accountId);
     if (!session) {
       throw new Error('SESSION_NOT_FOUND');
+    }
+    // Idempotent: if already running, return current session DTO successfully
+    if (session.status === 'running') {
+      return this.mapSessionToDTO(session);
     }
     if (session.status !== 'paused') {
       throw new Error('SESSION_NOT_PAUSED');
@@ -188,8 +196,12 @@ export class StudyService {
     if (!session) {
       throw new Error('SESSION_NOT_FOUND');
     }
+    // Idempotent: if already completed, return existing completed session DTO successfully (HTTP 200)
+    if (session.status === 'completed') {
+      return this.mapSessionToDTO(session);
+    }
     if (session.status !== 'running' && session.status !== 'paused') {
-      throw new Error('SESSION_ALREADY_FINISHED');
+      throw new Error('SESSION_INVALID_STATE');
     }
 
     const timestamp = now.toISOString();
@@ -231,6 +243,10 @@ export class StudyService {
     const session = await this.repo.findSessionById(sessionId, accountId);
     if (!session) {
       throw new Error('SESSION_NOT_FOUND');
+    }
+    // Idempotent: if already cancelled, return existing cancelled session DTO successfully
+    if (session.status === 'cancelled') {
+      return this.mapSessionToDTO(session);
     }
 
     const timestamp = now.toISOString();

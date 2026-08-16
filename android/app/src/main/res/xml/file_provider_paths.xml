@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider paths for APK update downloads only.
+     Only the update cache directory under the app's internal files is exposed. -->
+<paths>
+    <files-path
+        name="apk_updates"
+        path="apk_updates/" />
+</paths>

@@ -3,7 +3,61 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+
+    <!-- Ambient Core Glow -->
+    <path
+        android:fillColor="#1E3A8A"
+        android:fillAlpha="0.45"
+        android:pathData="M54,24 C70.57,24 84,37.43 84,54 C84,70.57 70.57,84 54,84 C37.43,84 24,70.57 24,54 C24,37.43 37.43,24 54,24 Z" />
+
+    <!-- Academic Cap / Tech Diamond Apex (Top Crest) -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M54,27 L78,39 L54,51 L30,39 Z" />
+
+    <!-- Cap Underside / Depth Shadow -->
+    <path
+        android:fillColor="#0284C7"
+        android:pathData="M30,39 L54,51 L78,39 L78,41 L54,53 L30,41 Z" />
+
+    <!-- Tassel Accent -->
+    <path
+        android:fillColor="#FCD34D"
+        android:pathData="M72,39 L72,50 C72,51.66 70.66,53 69,53 L69,48 C70,48 70.5,47.5 70.5,46.5 L70.5,39.75 Z" />
+
+    <!-- Open Book - Left Wing Backplate -->
+    <path
+        android:fillColor="#2563EB"
+        android:pathData="M52,55 L28,47 C26.9,46.6 25.8,47.4 25.8,48.6 L25.8,72.2 C25.8,73.1 26.5,73.8 27.4,74.1 L52,82 Z" />
+
+    <!-- Open Book - Right Wing Backplate -->
+    <path
+        android:fillColor="#1D4ED8"
+        android:pathData="M56,55 L80,47 C81.1,46.6 82.2,47.4 82.2,48.6 L82.2,72.2 C82.2,73.1 81.5,73.8 80.6,74.1 L56,82 Z" />
+
+    <!-- Open Book - Left Page (Light/White) -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M66,42 C66,37.58 62.42,34 58,34 L50,34 C45.58,34 42,37.58 42,42 C42,46.42 45.58,50 50,50 L58,58 C62.42,58 66,61.58 66,66 C66,70.42 62.42,74 58,74 L50,74 C45.58,74 42,70.42 42,66 L48,66 C48,67.66 49.34,69 51,69 L57,69 C58.66,69 60,67.66 60,66 C60,64.34 58.66,63 57,63 L49,55 C44.58,55 41,51.42 41,47 C41,42.58 44.58,39 49,39 L57,39 C58.66,39 60,40.34 60,42 Z"/>
+        android:pathData="M52,57 L31,49.5 C30.4,49.3 29.8,49.7 29.8,50.3 L29.8,69.7 C29.8,70.2 30.2,70.6 30.7,70.8 L52,77.5 Z" />
+
+    <!-- Open Book - Right Page (Subtle Ice Blue) -->
+    <path
+        android:fillColor="#E2E8F0"
+        android:pathData="M56,57 L77,49.5 C77.6,49.3 78.2,49.7 78.2,50.3 L78.2,69.7 C78.2,70.2 77.8,70.6 77.3,70.8 L56,77.5 Z" />
+
+    <!-- Central Tech Spine & Dynamic Student OS Monogram Symbol -->
+    <path
+        android:fillColor="#2563EB"
+        android:pathData="M53,52 L55,52 L55,80 L53,80 Z" />
+
+    <!-- Stylized "S" / Energy Pulse over Central Nexus -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M60,60 C60,57.8 58.2,56 56,56 L52,56 C49.8,56 48,57.8 48,60 C48,62.2 49.8,64 52,64 L56,66 C58.2,66 60,67.8 60,70 C60,72.2 58.2,74 56,74 L51,74 C48.8,74 47,72.2 47,70 L49.5,70 C49.5,71.1 50.4,72 51.5,72 L55.5,72 C56.6,72 57.5,71.1 57.5,70 C57.5,68.9 56.6,68 55.5,68 L51.5,66 C49.3,66 47.5,64.2 47.5,62 C47.5,59.8 49.3,58 51.5,58 L55.5,58 C57.7,58 59.5,59.8 59.5,62 Z" />
+
+    <!-- Apex Star / Beacon Highlight -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,34 L55.2,37.5 L58.7,38.7 L55.2,39.9 L54,43.4 L52.8,39.9 L49.3,38.7 L52.8,37.5 Z" />
+
 </vector>
