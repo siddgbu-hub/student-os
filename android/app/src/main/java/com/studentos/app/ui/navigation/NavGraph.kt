@@ -1,18 +1,37 @@
 package com.studentos.app.ui.navigation
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.navigation.compose.NavHost
@@ -44,6 +63,54 @@ import com.studentos.app.ui.update.AppUpdateDialog
 import com.studentos.app.ui.update.AppUpdateManager
 import kotlinx.coroutines.launch
 
+sealed interface SessionHydrationState {
+    object Hydrating : SessionHydrationState
+    data class Hydrated(val token: String?) : SessionHydrationState
+}
+
+@Composable
+fun StudentOsSplashScreen() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.primary),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "S",
+                    color = Color.White,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 28.sp
+                )
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Student OS",
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+            CircularProgressIndicator(
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(28.dp),
+                strokeWidth = 2.5.dp
+            )
+        }
+    }
+}
+
 @Composable
 fun StudentOsApp(
     onGoogleSignInLaunch: (
@@ -57,7 +124,11 @@ fun StudentOsApp(
     val apiClient = remember { ApiClient(sessionManager) }
     val repository = remember { StudentOsRepository(apiClient, sessionManager, context) }
 
-    val tokenState by repository.tokenFlow.collectAsState(initial = null)
+    val sessionHydrationState by produceState<SessionHydrationState>(initialValue = SessionHydrationState.Hydrating) {
+        repository.tokenFlow.collect { token ->
+            value = SessionHydrationState.Hydrated(token)
+        }
+    }
     val themeState by repository.themeFlow.collectAsState(initial = "system")
 
     val authViewModel = remember { AuthViewModel(repository) }
@@ -72,8 +143,6 @@ fun StudentOsApp(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val isAuthenticated = !tokenState.isNullOrEmpty()
-
     val authenticatedRoutes = setOf(
         Screen.Dashboard.route,
         Screen.Study.route,
@@ -82,43 +151,9 @@ fun StudentOsApp(
         Screen.Analytics.route,
         Screen.Account.route
     )
-    val showBars = isAuthenticated && currentRoute in authenticatedRoutes
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val coroutineScope = rememberCoroutineScope()
-
-    DisposableEffect(lifecycleOwner, isAuthenticated) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME || event == Lifecycle.Event.ON_START) {
-                if (isAuthenticated) {
-                    coroutineScope.launch {
-                        repository.getEntitlementStatus()
-                    }
-                }
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
-    LaunchedEffect(isAuthenticated) {
-        if (isAuthenticated) {
-            repository.getEntitlementStatus()
-            dashboardViewModel.loadDashboardData()
-            accountViewModel.loadAccountData()
-            if (currentRoute == Screen.Login.route || currentRoute == Screen.OtpVerify.route || currentRoute == null) {
-                navController.navigate(Screen.Dashboard.route) {
-                    popUpTo(Screen.Login.route) { inclusive = true }
-                }
-            }
-        } else if (currentRoute != Screen.Login.route && currentRoute != Screen.OtpVerify.route) {
-            navController.navigate(Screen.Login.route) {
-                popUpTo(0) { inclusive = true }
-            }
-        }
-    }
 
     // Derive premium avatar state from DashboardViewModel entitlement (server-authoritative)
     val dashboardUiState by dashboardViewModel.uiState.collectAsState()
@@ -138,40 +173,84 @@ fun StudentOsApp(
         // Update dialog is rendered over the full app — will show whenever a new version is available
         AppUpdateDialog()
 
-        Scaffold(
-            topBar = {
-                if (showBars) {
-                    StudentOsTopAppBar(
-                        userInitial = userInitial,
-                        isPaidActive = isPaidActive,
-                        onAccountClick = { navController.navigate(Screen.Account.route) }
-                    )
+        when (val state = sessionHydrationState) {
+            is SessionHydrationState.Hydrating -> {
+                StudentOsSplashScreen()
+            }
+            is SessionHydrationState.Hydrated -> {
+                val isAuthenticated = !state.token.isNullOrEmpty()
+                val initialStartDestination = remember {
+                    if (isAuthenticated) Screen.Dashboard.route else Screen.Login.route
                 }
-            },
-            bottomBar = {
-                if (showBars) {
-                    StudentOsBottomBar(
-                        currentRoute = currentRoute,
-                        onNavigate = { route ->
-                            if (currentRoute != route) {
-                                navController.navigate(route) {
-                                    popUpTo(navController.graph.startDestinationId) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
+                val showBars = isAuthenticated && currentRoute in authenticatedRoutes
+
+                DisposableEffect(lifecycleOwner, isAuthenticated) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME || event == Lifecycle.Event.ON_START) {
+                            if (isAuthenticated) {
+                                coroutineScope.launch {
+                                    repository.getEntitlementStatus()
                                 }
                             }
                         }
-                    )
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose {
+                        lifecycleOwner.lifecycle.removeObserver(observer)
+                    }
                 }
-            }
-        ) { innerPadding ->
-            NavHost(
-                navController = navController,
-                startDestination = Screen.Login.route,
-                modifier = Modifier.padding(if (showBars) innerPadding else PaddingValues())
-            ) {
+
+                LaunchedEffect(isAuthenticated) {
+                    if (isAuthenticated) {
+                        repository.getEntitlementStatus()
+                        dashboardViewModel.loadDashboardData()
+                        accountViewModel.loadAccountData()
+                        if (currentRoute == Screen.Login.route || currentRoute == Screen.OtpVerify.route || currentRoute == null) {
+                            navController.navigate(Screen.Dashboard.route) {
+                                popUpTo(Screen.Login.route) { inclusive = true }
+                            }
+                        }
+                    } else if (currentRoute != Screen.Login.route && currentRoute != Screen.OtpVerify.route) {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                }
+
+                Scaffold(
+                    topBar = {
+                        if (showBars) {
+                            StudentOsTopAppBar(
+                                userInitial = userInitial,
+                                isPaidActive = isPaidActive,
+                                onAccountClick = { navController.navigate(Screen.Account.route) }
+                            )
+                        }
+                    },
+                    bottomBar = {
+                        if (showBars) {
+                            StudentOsBottomBar(
+                                currentRoute = currentRoute,
+                                onNavigate = { route ->
+                                    if (currentRoute != route) {
+                                        navController.navigate(route) {
+                                            popUpTo(navController.graph.startDestinationId) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                    }
+                ) { innerPadding ->
+                    NavHost(
+                        navController = navController,
+                        startDestination = initialStartDestination,
+                        modifier = Modifier.padding(if (showBars) innerPadding else PaddingValues())
+                    ) {
                 composable(Screen.Login.route) {
                     LoginScreen(
                         viewModel = authViewModel,
@@ -268,3 +347,6 @@ fun StudentOsApp(
         }
     }
 }
+}
+}
+

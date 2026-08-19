@@ -5,6 +5,7 @@ import { Button } from '@student-os/ui';
 import { EntitlementDto, PlanDto, PaymentConfigDto } from '@student-os/shared';
 import { EntitlementService } from '../../services/entitlementService.js';
 import { UpgradeModal } from '../../components/entitlement/UpgradeModal.js';
+import { Crown, Timer, AlertCircle, CheckCircle2, Monitor, Smartphone, ExternalLink, ShieldAlert, Trash2, ArrowRight } from 'lucide-react';
 
 export const AccountPage: React.FC = () => {
   const { overview, profile, preferences, devices, loading, error, updateProfile, updatePreferences, revokeDevice, deleteAccount } =
@@ -155,15 +156,19 @@ export const AccountPage: React.FC = () => {
         <div
           role="alert"
           style={{
-            padding: 'var(--spacing-xs) var(--spacing-md)',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fca5a5',
-            color: '#991b1b',
-            fontSize: '0.85rem',
+            padding: '8px 14px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            color: 'var(--color-error)',
+            fontSize: '0.82rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
           }}
         >
-          <strong>⚠️ {error}</strong>
+          <AlertCircle size={16} />
+          <span>{error}</span>
         </div>
       )}
 
@@ -171,15 +176,19 @@ export const AccountPage: React.FC = () => {
         <div
           role="status"
           style={{
-            padding: 'var(--spacing-xs) var(--spacing-md)',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: '#f0fdf4',
-            border: '1px solid #86efac',
-            color: '#166534',
-            fontSize: '0.85rem',
+            padding: '8px 14px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'rgba(16, 185, 129, 0.08)',
+            border: '1px solid rgba(16, 185, 129, 0.25)',
+            color: 'var(--color-success)',
+            fontSize: '0.82rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
           }}
         >
-          <strong>✓ {successMsg}</strong>
+          <CheckCircle2 size={16} />
+          <span>{successMsg}</span>
         </div>
       )}
 
@@ -216,19 +225,18 @@ export const AccountPage: React.FC = () => {
                     style={{
                       width: '38px',
                       height: '38px',
-                      borderRadius: '50%',
-                      backgroundColor: isPaid ? 'rgba(245, 158, 11, 0.15)' : 'rgba(37, 99, 235, 0.12)',
-                      border: isPaid ? '1.5px solid rgba(245, 158, 11, 0.5)' : '1.5px solid rgba(37, 99, 235, 0.4)',
+                      borderRadius: 'var(--radius-sm)',
+                      backgroundColor: isPaid ? 'rgba(245, 158, 11, 0.12)' : 'rgba(37, 99, 235, 0.1)',
+                      border: isPaid ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(37, 99, 235, 0.25)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      fontSize: '18px',
                     }}
                   >
-                    {isPaid ? '👑' : '⏳'}
+                    {isPaid ? <Crown size={20} color="#f59e0b" /> : <Timer size={20} color="var(--color-accent)" />}
                   </div>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: 'var(--color-text-primary)' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600', color: 'var(--color-text-primary)' }}>
                       {isPaid ? 'Student OS Pro' : 'Student OS Free Trial'}
                     </h3>
                     <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
@@ -640,12 +648,15 @@ export const AccountPage: React.FC = () => {
           <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: 'var(--spacing-xs) 0' }} />
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-sm)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '700', color: 'var(--color-text-primary)' }}>Student OS on Web</h4>
-                <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                  Access from your desktop or laptop browser at student-os-19f.pages.dev
-                </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ color: 'var(--color-text-muted)' }}><Monitor size={20} /></div>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.875rem', fontWeight: '600', color: 'var(--color-text-primary)' }}>Student OS on Web</h4>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                    Access from your desktop or laptop browser at student-os-19f.pages.dev
+                  </p>
+                </div>
               </div>
               <a
                 href="https://student-os-19f.pages.dev"
@@ -655,46 +666,51 @@ export const AccountPage: React.FC = () => {
                   textDecoration: 'none',
                   padding: '5px 12px',
                   borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--color-bg-secondary)',
+                  backgroundColor: 'var(--color-bg-primary)',
                   border: '1px solid var(--color-border)',
                   color: 'var(--color-accent)',
-                  fontSize: '0.8rem',
+                  fontSize: '0.78rem',
                   fontWeight: '600',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '4px',
+                  gap: '5px',
                 }}
               >
-                Open Web Version ↗
+                <span>Open Web Version</span>
+                <ExternalLink size={13} />
               </a>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: '700', color: 'var(--color-text-primary)' }}>Student OS for Android</h4>
-                <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                  Install the mobile app for notifications, widgets, and background timer
-                </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ color: 'var(--color-text-muted)' }}><Smartphone size={20} /></div>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '0.875rem', fontWeight: '600', color: 'var(--color-text-primary)' }}>Student OS for Android</h4>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                    Install the mobile app for notifications, widgets, and background timer
+                  </p>
+                </div>
               </div>
               <a
-                href="https://github.com/siddgbu-hub/student-os/releases/download/v1.0.3/StudentOS-v1.0.3.apk"
+                href="https://github.com/siddgbu-hub/student-os/releases/download/v1.0.4/StudentOS-v1.0.4.apk"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
                   textDecoration: 'none',
                   padding: '5px 12px',
                   borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--color-bg-secondary)',
+                  backgroundColor: 'var(--color-bg-primary)',
                   border: '1px solid var(--color-border)',
                   color: 'var(--color-accent)',
-                  fontSize: '0.8rem',
+                  fontSize: '0.78rem',
                   fontWeight: '600',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '4px',
+                  gap: '5px',
                 }}
               >
-                Get Android App ↗
+                <span>Get Android App</span>
+                <ExternalLink size={13} />
               </a>
             </div>
           </div>
