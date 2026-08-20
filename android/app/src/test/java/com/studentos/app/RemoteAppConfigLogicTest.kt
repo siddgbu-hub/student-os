@@ -183,7 +183,7 @@ class RemoteAppConfigLogicTest {
     @Test
     fun testGitHubDownloadUrlValidation() {
         // Valid GitHub release asset URLs
-        assertTrue(isValidGitHubDownloadUrl("https://github.com/siddgbu-hub/student-os/releases/download/v1.0.5/student-os-v1.0.5.apk"))
+        assertTrue(isValidGitHubDownloadUrl("https://github.com/siddgbu-hub/student-os/releases/download/v1.0.5/StudentOS-v1.0.5.apk"))
         assertTrue(isValidGitHubDownloadUrl("https://objects.githubusercontent.com/github-production-release-asset-2e65be/12345/app.apk"))
         assertTrue(isValidGitHubDownloadUrl("https://github-releases.githubusercontent.com/123456/student-os.apk"))
 

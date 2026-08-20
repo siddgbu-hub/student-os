@@ -45,7 +45,7 @@ describe('App Controller — GET /api/v1/app/config & version', () => {
     expect(body.data.webUrl).toBe('https://studentos.kryvlance.in');
     expect(body.data.githubReleaseUrl).toBe('https://github.com/siddgbu-hub/student-os/releases');
     expect(body.data.githubLatestReleaseUrl).toBe('https://github.com/siddgbu-hub/student-os/releases/tag/v1.0.5');
-    expect(body.data.githubLatestApkUrl).toBe('https://github.com/siddgbu-hub/student-os/releases/download/v1.0.5/student-os-v1.0.5.apk');
+    expect(body.data.githubLatestApkUrl).toBe('https://github.com/siddgbu-hub/student-os/releases/download/v1.0.5/StudentOS-v1.0.5.apk');
     expect(body.data.helpUrl).toBe('https://studentos.kryvlance.in/help');
     expect(body.data.supportEmail).toBeNull();
 

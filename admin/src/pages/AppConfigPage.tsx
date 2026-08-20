@@ -322,7 +322,7 @@ export const AppConfigPage: React.FC = () => {
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-sm focus:outline-none focus:border-indigo-500 font-mono"
                   value={config.githubLatestApkUrl}
                   onChange={(e) => setConfig({ ...config, githubLatestApkUrl: e.target.value })}
-                  placeholder="https://github.com/OWNER/REPO/releases/download/v1.0.5/student-os-v1.0.5.apk"
+                  placeholder="https://github.com/OWNER/REPO/releases/download/v1.0.5/StudentOS-v1.0.5.apk"
                 />
                 <p className="text-xs text-slate-500 mt-1">Direct APK download link served to mobile clients on update prompt.</p>
               </div>

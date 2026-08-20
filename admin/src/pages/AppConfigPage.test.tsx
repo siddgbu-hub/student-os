@@ -27,7 +27,7 @@ const mockAppConfig: RemoteAppConfig = {
   webUrl: 'https://studentos.kryvlance.in',
   githubReleaseUrl: 'https://github.com/siddgbu-hub/student-os/releases',
   githubLatestReleaseUrl: 'https://github.com/siddgbu-hub/student-os/releases/tag/v1.0.5',
-  githubLatestApkUrl: 'https://github.com/siddgbu-hub/student-os/releases/download/v1.0.5/student-os-v1.0.5.apk',
+  githubLatestApkUrl: 'https://github.com/siddgbu-hub/student-os/releases/download/v1.0.5/StudentOS-v1.0.5.apk',
   latestApkSha256: '9bc3fa63b36d0a2f028da8ab8a9568670f1cece5eca6404aff6b401f7642b984',
   helpUrl: 'https://studentos.kryvlance.in/help',
   supportEmail: 'support@kryvlance.in',

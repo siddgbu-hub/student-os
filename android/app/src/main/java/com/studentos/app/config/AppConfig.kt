@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 const val CANONICAL_WEB_URL = "https://studentos.kryvlance.in"
 const val CANONICAL_GITHUB_RELEASE_URL = "https://github.com/siddgbu-hub/student-os/releases"
 const val CANONICAL_GITHUB_LATEST_RELEASE_URL = "https://github.com/siddgbu-hub/student-os/releases/tag/v1.0.5"
-const val CANONICAL_GITHUB_LATEST_APK_URL = "https://github.com/siddgbu-hub/student-os/releases/download/v1.0.5/student-os-v1.0.5.apk"
+const val CANONICAL_GITHUB_LATEST_APK_URL = "https://github.com/siddgbu-hub/student-os/releases/download/v1.0.5/StudentOS-v1.0.5.apk"
 const val CANONICAL_HELP_URL = "https://studentos.kryvlance.in/help"
 
 /**
