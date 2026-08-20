@@ -26,8 +26,8 @@ export const ANDROID_RELEASE_METADATA: AndroidReleaseMetadata = {
     'Polished native typography system with enhanced legibility and vertical rhythm',
   ],
   apkUrl: 'https://github.com/siddgbu-hub/student-os/releases/download/v1.0.5/student-os-v1.0.5.apk',
-  apkSha256: '2c551ed52e295458b1e0a9399140c3e47374c31533d5d13647dcd178589fd457',
-  apkSizeBytes: 2817377,
+  apkSha256: '90cccd6deca63b1113eac24e6c3ba53ba6de1d0adae0f0ab9b4bed4b57e9f7cf',
+  apkSizeBytes: 19513481,
   publishedAt: '2026-08-20T17:58:00.000Z',
 };
 
@@ -93,7 +93,7 @@ export const DEFAULT_REMOTE_APP_CONFIG: RemoteAppConfig = {
   githubReleaseUrl: 'https://github.com/siddgbu-hub/student-os/releases',
   githubLatestReleaseUrl: 'https://github.com/siddgbu-hub/student-os/releases/tag/v1.0.5',
   githubLatestApkUrl: 'https://github.com/siddgbu-hub/student-os/releases/download/v1.0.5/student-os-v1.0.5.apk',
-  latestApkSha256: '2c551ed52e295458b1e0a9399140c3e47374c31533d5d13647dcd178589fd457',
+  latestApkSha256: '90cccd6deca63b1113eac24e6c3ba53ba6de1d0adae0f0ab9b4bed4b57e9f7cf',
   helpUrl: 'https://studentos.kryvlance.in/help',
   supportEmail: null,
   announcements: [],

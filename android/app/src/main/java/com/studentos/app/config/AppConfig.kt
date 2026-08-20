@@ -55,7 +55,7 @@ data class RemoteAppConfigDto(
     val githubReleaseUrl: String = CANONICAL_GITHUB_RELEASE_URL,
     val githubLatestReleaseUrl: String = CANONICAL_GITHUB_LATEST_RELEASE_URL,
     val githubLatestApkUrl: String = CANONICAL_GITHUB_LATEST_APK_URL,
-    val latestApkSha256: String? = "2c551ed52e295458b1e0a9399140c3e47374c31533d5d13647dcd178589fd457",
+    val latestApkSha256: String? = "90cccd6deca63b1113eac24e6c3ba53ba6de1d0adae0f0ab9b4bed4b57e9f7cf",
     val helpUrl: String = CANONICAL_HELP_URL,
     val supportEmail: String? = null,
     val announcements: List<AppAnnouncementDto> = emptyList()
