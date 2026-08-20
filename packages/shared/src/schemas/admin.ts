@@ -173,3 +173,51 @@ export const AdminAuditLogsQuerySchema = z.object({
   eventType: z.string().optional(),
   accountId: z.string().uuid().optional(),
 });
+
+export const AppFeatureFlagsSchema = z.object({
+  analytics: z.boolean().default(true),
+  planner: z.boolean().default(true),
+  revision: z.boolean().default(true),
+  study: z.boolean().default(true),
+  payments: z.boolean().default(true),
+  webVersion: z.boolean().default(true),
+  newDashboard: z.boolean().default(true),
+});
+
+export const AppAnnouncementSchema = z.object({
+  id: z.string(),
+  title: z.string().min(1, 'Title is required').max(200),
+  message: z.string().min(1, 'Message is required').max(1000),
+  actionUrl: z.string().url('Action URL must be a valid URL').optional().nullable(),
+  actionText: z.string().max(50).optional().nullable(),
+  dismissible: z.boolean().default(true),
+  createdAt: z.string(),
+});
+
+export const RemoteAppConfigSchema = z.object({
+  minimumSupportedVersion: z.string().regex(/^\d+(\.\d+)*$/, 'Invalid semantic version'),
+  minimumSupportedVersionCode: z.number().int().positive('Minimum version code must be positive'),
+  latestVersion: z.string().regex(/^\d+(\.\d+)*$/, 'Invalid semantic version'),
+  latestVersionCode: z.number().int().positive('Latest version code must be positive'),
+  recommendedUpdateVersion: z.string().regex(/^\d+(\.\d+)*$/, 'Invalid semantic version'),
+  forceUpdate: z.boolean().default(false),
+  maintenanceMode: z.boolean().default(false),
+  maintenanceMessage: z.string().max(500).nullable().optional(),
+  features: AppFeatureFlagsSchema.default({}),
+  webUrl: z.string().url('Web URL must be valid'),
+  githubReleaseUrl: z.string().url('GitHub release URL must be valid'),
+  githubLatestReleaseUrl: z.string().url('GitHub latest release URL must be valid'),
+  githubLatestApkUrl: z.string().url('GitHub latest APK URL must be valid'),
+  latestApkSha256: z.string().regex(/^[a-fA-F0-9]{64}$/, 'Checksum must be 64-char hex').nullable().optional().or(z.literal('')),
+  helpUrl: z.string().url('Help URL must be valid'),
+  supportEmail: z.string().email('Support email must be valid').nullable().optional().or(z.literal('')),
+  announcements: z.array(AppAnnouncementSchema).default([]),
+});
+
+export const UpdateRemoteAppConfigSchema = RemoteAppConfigSchema.partial();
+
+export type AppFeatureFlags = z.infer<typeof AppFeatureFlagsSchema>;
+export type AppAnnouncement = z.infer<typeof AppAnnouncementSchema>;
+export type RemoteAppConfig = z.infer<typeof RemoteAppConfigSchema>;
+export type UpdateRemoteAppConfig = z.infer<typeof UpdateRemoteAppConfigSchema>;
+

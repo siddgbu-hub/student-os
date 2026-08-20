@@ -846,6 +846,7 @@ fun AccountScreen(
 
                     Spacer(modifier = Modifier.height(6.dp))
 
+                if (com.studentos.app.config.AppConfigManager.isFeatureEnabled(com.studentos.app.config.Feature.WEB_VERSION)) {
                     Text(
                         text = "Access your full study engine, planner, revision tracker, and analytics from your laptop or desktop browser.",
                         fontSize = 12.sp,
@@ -856,9 +857,10 @@ fun AccountScreen(
 
                     OutlinedButton(
                         onClick = {
+                            val targetUrl = com.studentos.app.config.AppConfigManager.configState.value.webUrl.ifBlank { "https://studentos.kryvlance.in" }
                             val intent = android.content.Intent(
                                 android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse("https://studentos.kryvlance.in")
+                                android.net.Uri.parse(targetUrl)
                             )
                             context.startActivity(intent)
                         },
@@ -873,6 +875,7 @@ fun AccountScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
+                }
                 }
             }
         }
@@ -941,6 +944,29 @@ fun AccountScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
             ) {
                 Text("Sign Out", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color.White)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // 6. App Version & Company Attribution Footer
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Student OS · by Kryvlance",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Version ${com.studentos.app.BuildConfig.VERSION_NAME} (${com.studentos.app.BuildConfig.VERSION_CODE})",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                )
             }
             Spacer(modifier = Modifier.height(24.dp))
         }

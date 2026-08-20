@@ -64,14 +64,13 @@ fun OtpVerifyScreen(
             ) {
                 Text(
                     text = "Verify Code",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     text = "Enter the 6-digit code sent to ${uiState.pendingEmail ?: "your email"}",
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
@@ -86,7 +85,7 @@ fun OtpVerifyScreen(
                 OutlinedTextField(
                     value = otpInput,
                     onValueChange = { if (it.length <= 6) otpInput = it },
-                    placeholder = { Text("123456", fontSize = 16.sp, textAlign = TextAlign.Center) },
+                    placeholder = { Text("123456", style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(8.dp),
@@ -112,7 +111,7 @@ fun OtpVerifyScreen(
                     if (uiState.isLoading) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
                     } else {
-                        Text("Verify & Continue", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                        Text("Verify & Continue", style = MaterialTheme.typography.labelLarge, color = Color.White)
                     }
                 }
 
@@ -125,8 +124,7 @@ fun OtpVerifyScreen(
                 ) {
                     Text(
                         text = if (isCooldown) "Resend code in ${uiState.resendCooldownSeconds}s" else "Didn't receive code? Resend OTP",
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.labelMedium,
                         color = if (isCooldown) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary
                     )
                 }

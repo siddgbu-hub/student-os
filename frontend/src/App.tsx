@@ -24,16 +24,18 @@ import { AccountProvider, useAccount } from './context/AccountContext.js';
 import { ToastProvider, useToast } from './context/ToastContext.js';
 import { GoalProvider, useGoal } from './context/GoalContext.js';
 import { ProtectedRoute } from './router/ProtectedRoute.js';
-import { DashboardPage } from './pages/dashboard/DashboardPage.js';
-import { StudyPage } from './pages/study/StudyPage.js';
-import { PlannerPage } from './pages/planner/PlannerPage.js';
-import { RevisionPage } from './pages/revision/RevisionPage.js';
-import { AnalyticsPage } from './pages/analytics/AnalyticsPage.js';
-import { AccountPage } from './pages/account/AccountPage.js';
 import { Button } from '@student-os/ui';
 import { EntitlementDto, PlanDto, PaymentConfigDto } from '@student-os/shared';
 import { EntitlementService } from './services/entitlementService.js';
-import { UpgradeModal } from './components/entitlement/UpgradeModal.js';
+
+// Route-level code splitting for all application modules
+const DashboardPage = React.lazy(() => import('./pages/dashboard/DashboardPage.js').then((m) => ({ default: m.DashboardPage })));
+const StudyPage = React.lazy(() => import('./pages/study/StudyPage.js').then((m) => ({ default: m.StudyPage })));
+const PlannerPage = React.lazy(() => import('./pages/planner/PlannerPage.js').then((m) => ({ default: m.PlannerPage })));
+const RevisionPage = React.lazy(() => import('./pages/revision/RevisionPage.js').then((m) => ({ default: m.RevisionPage })));
+const AnalyticsPage = React.lazy(() => import('./pages/analytics/AnalyticsPage.js').then((m) => ({ default: m.AnalyticsPage })));
+const AccountPage = React.lazy(() => import('./pages/account/AccountPage.js').then((m) => ({ default: m.AccountPage })));
+const UpgradeModal = React.lazy(() => import('./components/entitlement/UpgradeModal.js').then((m) => ({ default: m.UpgradeModal })));
 
 const WorkspaceShell: React.FC = () => {
   const { account, logout, token } = useAuth();
@@ -423,82 +425,117 @@ const WorkspaceShell: React.FC = () => {
 
       {/* Main Content Container */}
       <main className="main-content-container" style={{ maxWidth: '1180px', margin: '0 auto', padding: 'var(--spacing-md)' }}>
-        {isActuallyExpired && (activeModule === 'study' || activeModule === 'planner' || activeModule === 'revision' || activeModule === 'analytics') ? (
-          <div
-            style={{
-              maxWidth: '560px',
-              margin: '48px auto',
-              padding: '36px 28px',
-              borderRadius: 'var(--radius-lg)',
-              backgroundColor: 'var(--color-bg-secondary)',
-              border: '1px solid var(--color-border)',
-              textAlign: 'center',
-              boxShadow: 'var(--shadow-md)',
-            }}
-          >
+        <React.Suspense
+          fallback={
+            <div style={{ padding: '36px 0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ width: '40%', height: '24px', backgroundColor: 'var(--color-border)', borderRadius: 'var(--radius-sm)', opacity: 0.5 }} />
+              <div style={{ width: '100%', height: '200px', backgroundColor: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', opacity: 0.5 }} />
+            </div>
+          }
+        >
+          {isActuallyExpired && (activeModule === 'study' || activeModule === 'planner' || activeModule === 'revision' || activeModule === 'analytics') ? (
             <div
               style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '50%',
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                color: 'var(--color-error)',
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: '16px',
+                maxWidth: '560px',
+                margin: '48px auto',
+                padding: '36px 28px',
+                borderRadius: 'var(--radius-lg)',
+                backgroundColor: 'var(--color-bg-secondary)',
+                border: '1px solid var(--color-border)',
+                textAlign: 'center',
+                boxShadow: 'var(--shadow-md)',
               }}
             >
-              <Lock size={24} />
-            </div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '8px', color: 'var(--color-text-primary)', letterSpacing: '-0.01em' }}>
-              Your 7-day free trial has ended
-            </h2>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem', marginBottom: '24px', lineHeight: 1.5, maxWidth: '440px', margin: '0 auto 24px' }}>
-              Upgrade to Student OS Pro to unlock full access to the Study Engine, Planner, Revision Tracker, and Analytics. Choose a plan to continue your progress.
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <Button
-                variant="primary"
-                onClick={() => setShowUpgradeModal(true)}
+              <div
                 style={{
-                  padding: '0.5rem 1.5rem',
-                  fontWeight: '600',
-                  fontSize: '0.875rem',
-                  backgroundColor: 'var(--color-accent)',
-                  color: '#fff',
-                  gap: '6px',
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  color: 'var(--color-error)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: '16px',
                 }}
               >
-                <span>View Pro Plans & Upgrade</span>
-                <ArrowRight size={16} />
-              </Button>
+                <Lock size={24} />
+              </div>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '8px', color: 'var(--color-text-primary)', letterSpacing: '-0.01em' }}>
+                Your 7-day free trial has ended
+              </h2>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem', marginBottom: '24px', lineHeight: 1.5, maxWidth: '440px', margin: '0 auto 24px' }}>
+                Upgrade to Student OS Pro to unlock full access to the Study Engine, Planner, Revision Tracker, and Analytics. Choose a plan to continue your progress.
+              </p>
+              <div style={{ display: 'flex', justifyContent: 'center' }}>
+                <Button
+                  variant="primary"
+                  onClick={() => setShowUpgradeModal(true)}
+                  style={{
+                    padding: '0.5rem 1.5rem',
+                    fontWeight: '600',
+                    fontSize: '0.875rem',
+                    backgroundColor: 'var(--color-accent)',
+                    color: '#fff',
+                    gap: '6px',
+                  }}
+                >
+                  <span>View Pro Plans & Upgrade</span>
+                  <ArrowRight size={16} />
+                </Button>
+              </div>
             </div>
-          </div>
-        ) : activeModule === 'dashboard' ? (
-          <DashboardPage onNavigate={setActiveModule} />
-        ) : activeModule === 'study' ? (
-          <StudyPage />
-        ) : activeModule === 'planner' ? (
-          <PlannerPage />
-        ) : activeModule === 'revision' ? (
-          <RevisionPage />
-        ) : activeModule === 'analytics' ? (
-          <AnalyticsPage />
-        ) : (
-          <AccountPage />
-        )}
+          ) : activeModule === 'dashboard' ? (
+            <DashboardPage onNavigate={setActiveModule} />
+          ) : activeModule === 'study' ? (
+            <StudyPage />
+          ) : activeModule === 'planner' ? (
+            <PlannerPage />
+          ) : activeModule === 'revision' ? (
+            <RevisionPage />
+          ) : activeModule === 'analytics' ? (
+            <AnalyticsPage />
+          ) : (
+            <AccountPage />
+          )}
+
+          {/* Upgrade / Commercial Modal */}
+          {showUpgradeModal && (
+            <UpgradeModal
+              isOpen={showUpgradeModal}
+              plans={plans}
+              contactWhatsApp={paymentConfig?.contactWhatsApp}
+              accountEmail={account?.email || ''}
+              entitlement={entitlement}
+              onClose={() => setShowUpgradeModal(false)}
+            />
+          )}
+        </React.Suspense>
       </main>
 
-      {/* Upgrade / Commercial Modal */}
-      <UpgradeModal
-        isOpen={showUpgradeModal}
-        plans={plans}
-        contactWhatsApp={paymentConfig?.contactWhatsApp}
-        accountEmail={account?.email || ''}
-        entitlement={entitlement}
-        onClose={() => setShowUpgradeModal(false)}
-      />
+      {/* Global Web Application Footer */}
+      <footer
+        style={{
+          maxWidth: '1180px',
+          margin: '0 auto',
+          padding: '24px var(--spacing-md) 48px',
+          textAlign: 'center',
+          borderTop: '1px solid var(--color-border)',
+          marginTop: '40px',
+        }}
+      >
+        <p
+          style={{
+            fontSize: '0.8rem',
+            color: 'var(--color-text-secondary)',
+            margin: 0,
+            letterSpacing: '0.01em',
+            fontWeight: 500,
+          }}
+        >
+          Student OS · by Kryvlance
+        </p>
+      </footer>
 
       {/* Fixed Mobile Bottom Navigation Bar */}
       <nav className="mobile-bottom-nav" aria-label="Mobile Navigation">

@@ -26,11 +26,7 @@ class AnalyticsViewModel(private val repository: StudentOsRepository) : ViewMode
 
     private var fetchJob: Job? = null
 
-    init {
-        loadAnalytics("this_week")
-    }
-
-    fun loadAnalytics(period: String) {
+    fun loadAnalytics(period: String = _uiState.value.selectedPeriod) {
         fetchJob?.cancel()
         fetchJob = viewModelScope.launch {
             _uiState.value = _uiState.value.copy(

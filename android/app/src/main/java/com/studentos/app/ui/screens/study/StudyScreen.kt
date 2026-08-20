@@ -72,6 +72,7 @@ fun StudyScreen(viewModel: StudyViewModel) {
     ) { _ -> }
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.loadSubjects()
         viewModel.refreshActiveSession()
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
             val hasNotifPerm = androidx.core.content.ContextCompat.checkSelfPermission(

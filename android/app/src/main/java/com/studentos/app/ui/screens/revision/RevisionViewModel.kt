@@ -50,10 +50,6 @@ class RevisionViewModel(private val repository: StudentOsRepository) : ViewModel
 
     private var timerJob: Job? = null
 
-    init {
-        loadRevisionData()
-    }
-
     fun loadRevisionData() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)

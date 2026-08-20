@@ -74,8 +74,6 @@ class PlannerViewModel(private val repository: StudentOsRepository) : ViewModel(
     init {
         val initialMonday = getMondayOfWeekString(getTodayDateString())
         _uiState.value = _uiState.value.copy(selectedWeekStartDate = initialMonday)
-        loadDailyPlan()
-        loadSubjects()
     }
 
     fun getTodayDateString(): String {

@@ -38,7 +38,7 @@ describe('BrevoEmailService', () => {
     });
     globalThis.fetch = mockFetch;
 
-    const emailService = new BrevoEmailService('test-api-key', 'studentos.apk@gmail.com', 'Student OS');
+    const emailService = new BrevoEmailService('test-api-key', 'noreply@studentos.kryvlance.in', 'Student OS');
     await emailService.sendOtpEmail('test@example.com', '654321');
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -53,7 +53,7 @@ describe('BrevoEmailService', () => {
     });
 
     const parsedBody = JSON.parse(options.body);
-    expect(parsedBody.sender).toEqual({ name: 'Student OS', email: 'studentos.apk@gmail.com' });
+    expect(parsedBody.sender).toEqual({ name: 'Student OS', email: 'noreply@studentos.kryvlance.in' });
     expect(parsedBody.to).toEqual([{ email: 'test@example.com' }]);
     expect(parsedBody.subject).toBe('Your Student OS verification code');
     expect(parsedBody.htmlContent).toContain('654321');
@@ -61,9 +61,16 @@ describe('BrevoEmailService', () => {
   });
 
   it('throws an error if BREVO_API_KEY is missing', async () => {
-    const emailService = new BrevoEmailService(undefined, 'studentos.apk@gmail.com', 'Student OS');
+    const emailService = new BrevoEmailService(undefined, 'noreply@studentos.kryvlance.in', 'Student OS');
     await expect(emailService.sendOtpEmail('test@example.com', '123456')).rejects.toThrow(
       'Email service configuration missing'
+    );
+  });
+
+  it('throws an error if BREVO_FROM_EMAIL or BREVO_FROM_NAME is missing', async () => {
+    const emailService = new BrevoEmailService('test-api-key', undefined, undefined);
+    await expect(emailService.sendOtpEmail('test@example.com', '123456')).rejects.toThrow(
+      'Email service sender configuration missing'
     );
   });
 
@@ -74,7 +81,7 @@ describe('BrevoEmailService', () => {
       statusText: 'Unauthorized',
     });
 
-    const emailService = new BrevoEmailService('bad-key', 'studentos.apk@gmail.com', 'Student OS');
+    const emailService = new BrevoEmailService('bad-key', 'noreply@studentos.kryvlance.in', 'Student OS');
     await expect(emailService.sendOtpEmail('test@example.com', '123456')).rejects.toThrow(
       'Email provider error (status 401)'
     );

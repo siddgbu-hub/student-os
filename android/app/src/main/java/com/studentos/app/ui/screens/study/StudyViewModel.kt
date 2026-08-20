@@ -57,7 +57,6 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
     }
 
     init {
-        loadSubjects()
         observeSessionManager()
     }
 
@@ -78,11 +77,10 @@ class StudyViewModel(private val repository: StudentOsRepository) : ViewModel() 
                         val targetMins = _uiState.value.targetSessionDurationMinutes
                         _uiState.value = _uiState.value.copy(
                             activeSession = null,
-                            isTimerRunning = false,
-                            isTimerPaused = false,
-                            isEndingSession = false,
                             elapsedSeconds = 0,
-                            remainingSeconds = targetMins * 60
+                            remainingSeconds = targetMins * 60,
+                            isTimerRunning = false,
+                            isTimerPaused = false
                         )
                     }
                     is SessionState.Starting -> {

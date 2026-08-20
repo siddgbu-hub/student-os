@@ -38,6 +38,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshContainer
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -113,7 +114,7 @@ fun StudentOsTopAppBar(
                 Text(
                     text = "S",
                     color = Color.White,
-                    fontWeight = FontWeight.Black,
+                    fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
             }
@@ -121,8 +122,7 @@ fun StudentOsTopAppBar(
             Column {
                 Text(
                     text = "Student OS",
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onBackground
                 )
             }
@@ -163,7 +163,7 @@ fun StudentOsTopAppBar(
                         Text(
                             text = userInitial.uppercase(),
                             color = Color(0xFFFFD700),
-                            fontWeight = FontWeight.ExtraBold,
+                            fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
                         )
                     }
@@ -196,7 +196,7 @@ fun StudentOsTopAppBar(
                     Text(
                         text = userInitial.uppercase(),
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        fontWeight = FontWeight.Bold,
+                        fontWeight = FontWeight.SemiBold,
                         fontSize = 14.sp
                     )
                 }
@@ -208,16 +208,21 @@ fun StudentOsTopAppBar(
 @Composable
 fun StudentOsBottomBar(
     currentRoute: String?,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    featureFlags: com.studentos.app.config.FeatureFlags = com.studentos.app.config.FeatureFlags()
 ) {
-    val items = listOf(
-        NavigationItem("Dashboard", Screen.Dashboard.route, Icons.Default.GridView),
-        NavigationItem("Study", Screen.Study.route, Icons.Default.Timer),
-        NavigationItem("Planner", Screen.Planner.route, Icons.Default.CalendarToday),
-        NavigationItem("Revision", Screen.Revision.route, Icons.Default.Refresh),
-        NavigationItem("Analytics", Screen.Analytics.route, Icons.Default.BarChart),
-        NavigationItem("Account", Screen.Account.route, Icons.Default.Person)
+    val allItems = listOf(
+        NavigationItem("Dashboard", Screen.Dashboard.route, Icons.Default.GridView, true),
+        NavigationItem("Study", Screen.Study.route, Icons.Default.Timer, featureFlags.study),
+        NavigationItem("Planner", Screen.Planner.route, Icons.Default.CalendarToday, featureFlags.planner),
+        NavigationItem("Revision", Screen.Revision.route, Icons.Default.Refresh, featureFlags.revision),
+        NavigationItem("Analytics", Screen.Analytics.route, Icons.Default.BarChart, featureFlags.analytics),
+        NavigationItem("Account", Screen.Account.route, Icons.Default.Person, true)
     )
+
+    val items = remember(featureFlags) {
+        allItems.filter { it.isEnabled }
+    }
 
     NavigationBar(
         containerColor = MaterialTheme.colorScheme.surface,
@@ -232,8 +237,10 @@ fun StudentOsBottomBar(
                 label = {
                     Text(
                         text = item.label,
-                        fontSize = 10.sp,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontSize = 10.sp,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+                        )
                     )
                 },
                 colors = NavigationBarItemDefaults.colors(
@@ -248,7 +255,12 @@ fun StudentOsBottomBar(
     }
 }
 
-private data class NavigationItem(val label: String, val route: String, val icon: ImageVector)
+private data class NavigationItem(
+    val label: String,
+    val route: String,
+    val icon: ImageVector,
+    val isEnabled: Boolean = true
+)
 
 @Composable
 fun StatCard(
@@ -266,23 +278,20 @@ fun StatCard(
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 text = title,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onSurface
             )
             if (subtitle != null) {
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = subtitle,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
                     color = MaterialTheme.colorScheme.primary
                 )
             }

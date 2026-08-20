@@ -58,6 +58,11 @@ import com.studentos.app.ui.screens.revision.RevisionScreen
 import com.studentos.app.ui.screens.revision.RevisionViewModel
 import com.studentos.app.ui.screens.study.StudyScreen
 import com.studentos.app.ui.screens.study.StudyViewModel
+import com.studentos.app.config.AppConfigManager
+import com.studentos.app.config.AppUpdateState
+import com.studentos.app.ui.config.ForceUpdateScreen
+import com.studentos.app.ui.config.MaintenanceScreen
+import com.studentos.app.ui.config.OptionalUpdateDialog
 import com.studentos.app.ui.theme.StudentOsTheme
 import com.studentos.app.ui.update.AppUpdateDialog
 import com.studentos.app.ui.update.AppUpdateManager
@@ -114,9 +119,9 @@ fun StudentOsSplashScreen() {
 @Composable
 fun StudentOsApp(
     onGoogleSignInLaunch: (
-        onTokenReceived: (String) -> Unit,
-        onError: (String) -> Unit,
-        onCancel: () -> Unit
+        onSuccess: (idToken: String) -> Unit,
+        onError: (errorMessage: String) -> Unit,
+        onCancelled: () -> Unit
     ) -> Unit
 ) {
     val context = LocalContext.current
@@ -138,6 +143,8 @@ fun StudentOsApp(
     val revisionViewModel = remember { RevisionViewModel(repository) }
     val analyticsViewModel = remember { AnalyticsViewModel(repository) }
     val accountViewModel = remember { AccountViewModel(repository) }
+
+    val appConfigState by AppConfigManager.configState.collectAsState()
 
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -167,11 +174,29 @@ fun StudentOsApp(
     // Fails silently — never blocks app startup.
     LaunchedEffect(Unit) {
         AppUpdateManager.checkForUpdate()
+        AppConfigManager.fetchRemoteConfig()
     }
 
     StudentOsTheme(appTheme = themeState) {
-        // Update dialog is rendered over the full app — will show whenever a new version is available
-        AppUpdateDialog()
+        // App update and maintenance governance overlays
+        if (appConfigState.isMaintenanceMode) {
+            MaintenanceScreen(configState = appConfigState)
+            return@StudentOsTheme
+        }
+
+        when (val updateState = appConfigState.updateState) {
+            is AppUpdateState.MandatoryUpdate -> {
+                ForceUpdateScreen(updateState = updateState)
+                return@StudentOsTheme
+            }
+            is AppUpdateState.OptionalUpdate -> {
+                OptionalUpdateDialog(updateState = updateState)
+            }
+            is AppUpdateState.UpToDate -> {
+                // Fallback to legacy direct APK update dialog if active
+                AppUpdateDialog()
+            }
+        }
 
         when (val state = sessionHydrationState) {
             is SessionHydrationState.Hydrating -> {
@@ -241,7 +266,8 @@ fun StudentOsApp(
                                             restoreState = true
                                         }
                                     }
-                                }
+                                },
+                                featureFlags = appConfigState.featureFlags
                             )
                         }
                     }

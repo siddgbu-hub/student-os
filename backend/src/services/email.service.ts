@@ -6,19 +6,24 @@ export interface EmailService {
 
 export class BrevoEmailService implements EmailService {
   private apiKey?: string;
-  private senderEmail: string;
-  private senderName: string;
+  private senderEmail?: string;
+  private senderName?: string;
 
   constructor(apiKey?: string, senderEmail?: string, senderName?: string) {
     this.apiKey = apiKey;
-    this.senderEmail = senderEmail || 'studentos.apk@gmail.com';
-    this.senderName = senderName || 'Student OS';
+    this.senderEmail = senderEmail;
+    this.senderName = senderName;
   }
 
   async sendOtpEmail(email: string, otp: string): Promise<void> {
     if (!this.apiKey) {
       console.error('[BrevoEmailService] Missing BREVO_API_KEY configuration');
       throw new Error('Email service configuration missing');
+    }
+
+    if (!this.senderEmail || !this.senderName) {
+      console.error('[BrevoEmailService] Missing BREVO_FROM_EMAIL or BREVO_FROM_NAME configuration');
+      throw new Error('Email service sender configuration missing');
     }
 
     const template = generateOtpEmailContent(otp);

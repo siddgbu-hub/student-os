@@ -67,16 +67,18 @@ describe('SOCC App Shell & Layout UX Unit Tests', () => {
     renderTestApp(['/overview'], 'unauthenticated');
 
     await waitFor(() => {
-      expect(screen.getByText('Student OS Command Center')).toBeDefined();
+      expect(screen.getByText('Kryvlance')).toBeDefined();
+      expect(screen.getByText('Student OS Admin')).toBeDefined();
       expect(screen.getByRole('button', { name: /Send Verification Code/i })).toBeDefined();
     });
   });
 
-  it('2. authenticated admin sees the SOCC shell and Overview page (Back button hidden on root)', async () => {
+  it('2. authenticated admin sees the Kryvlance shell and Overview page (Back button hidden on root)', async () => {
     renderTestApp(['/overview'], 'authenticated');
 
     await waitFor(() => {
-      expect(screen.getAllByText('Student OS').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Kryvlance').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Student OS Admin').length).toBeGreaterThan(0);
       expect(screen.getAllByText('Overview').length).toBeGreaterThan(0);
     });
 
@@ -97,7 +99,7 @@ describe('SOCC App Shell & Layout UX Unit Tests', () => {
       expect(screen.getAllByText('Student Directory').length).toBeGreaterThan(0);
     });
 
-    const brandLinks = screen.getAllByRole('link', { name: /Go to SOCC Overview/i });
+    const brandLinks = screen.getAllByRole('link', { name: /Go to Overview/i });
     expect(brandLinks.length).toBeGreaterThan(0);
     fireEvent.click(brandLinks[0]);
 

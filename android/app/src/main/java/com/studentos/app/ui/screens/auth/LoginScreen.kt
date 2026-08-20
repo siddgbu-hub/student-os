@@ -67,22 +67,19 @@ fun LoginScreen(
             ) {
                 Text(
                     text = "STUDENT OS",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
-                    letterSpacing = 1.sp
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.sp),
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "Welcome Back",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Sign in to access your study planner, revision queue & analytics.",
-                    fontSize = 13.sp,
+                    style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center
                 )
@@ -103,7 +100,7 @@ fun LoginScreen(
                     shape = RoundedCornerShape(8.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
-                    Text("Continue with Google", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                    Text("Continue with Google", style = MaterialTheme.typography.labelLarge, color = Color.White)
                 }
 
                 Spacer(modifier = Modifier.height(20.dp))
@@ -115,7 +112,7 @@ fun LoginScreen(
                     HorizontalDivider(modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.outline)
                     Text(
                         text = " OR ",
-                        fontSize = 12.sp,
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
@@ -126,8 +123,7 @@ fun LoginScreen(
 
                 Text(
                     text = "Continue with Email Address",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -136,7 +132,7 @@ fun LoginScreen(
                 OutlinedTextField(
                     value = emailInput,
                     onValueChange = { emailInput = it },
-                    placeholder = { Text("student@university.edu", fontSize = 14.sp) },
+                    placeholder = { Text("student@university.edu", style = MaterialTheme.typography.bodyMedium) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     shape = RoundedCornerShape(8.dp),
@@ -167,7 +163,7 @@ fun LoginScreen(
                     if (uiState.isLoading) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
                     } else {
-                        Text("Send Verification Code", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("Send Verification Code", style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }

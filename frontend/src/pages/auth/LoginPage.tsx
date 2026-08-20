@@ -318,19 +318,29 @@ export const LoginPage: React.FC = () => {
         </form>
       </div>
 
-      {/* Footer / Terms */}
-      <p
-        style={{
-          marginTop: 'var(--spacing-xl)',
-          marginBottom: 0,
-          textAlign: 'center',
-          fontSize: '0.75rem',
-          color: 'var(--color-text-muted)',
-          lineHeight: '1.4',
-        }}
-      >
-        By continuing you agree to the Terms of Service and Privacy Policy.
-      </p>
+      {/* Footer / Terms & Attribution */}
+      <div style={{ marginTop: 'var(--spacing-xl)', textAlign: 'center' }}>
+        <p
+          style={{
+            margin: '0 0 6px 0',
+            fontSize: '0.75rem',
+            color: 'var(--color-text-muted)',
+            lineHeight: '1.4',
+          }}
+        >
+          By continuing you agree to the Terms of Service and Privacy Policy.
+        </p>
+        <p
+          style={{
+            margin: 0,
+            fontSize: '0.78rem',
+            color: 'var(--color-text-secondary)',
+            fontWeight: 500,
+          }}
+        >
+          Student OS · by Kryvlance
+        </p>
+      </div>
     </div>
   );
 };

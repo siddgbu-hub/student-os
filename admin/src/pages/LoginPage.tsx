@@ -93,11 +93,12 @@ export const LoginPage: React.FC = () => {
       <div className="w-full max-w-md">
         {/* Branding Header */}
         <div className="flex flex-col items-center text-center mb-8">
-          <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-900/40 mb-3">
+          <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold shadow-lg shadow-indigo-900/40 mb-3">
             <Shield className="w-6 h-6" />
           </div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Student OS Command Center</h1>
-          <p className="text-xs text-slate-400 mt-1">SOCC V1 — Internal Owner Control Console</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Kryvlance</h1>
+          <p className="text-sm font-semibold text-indigo-400 mt-0.5">Student OS Admin</p>
+          <p className="text-xs text-slate-400 mt-1">Control Plane & Governance Console</p>
         </div>
 
         {/* Authentication Card */}
@@ -233,8 +234,8 @@ export const LoginPage: React.FC = () => {
           )}
         </div>
 
-        <p className="text-center text-[11px] text-slate-400 mt-6">
-          Student OS Internal Production Infrastructure • Strict Server-Side RBAC Active
+        <p className="text-center text-xs text-slate-500 mt-6">
+          © 2026 Kryvlance · Student OS Admin
         </p>
       </div>
     </div>

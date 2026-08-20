@@ -5,6 +5,7 @@ import {
   Users,
   CreditCard,
   ShieldCheck,
+  Sliders,
   LogOut,
   Menu,
   X,
@@ -26,6 +27,7 @@ export const AdminLayout: React.FC = () => {
     { to: '/overview', label: 'Overview', icon: LayoutDashboard },
     { to: '/students', label: 'Students', icon: Users },
     { to: '/payments', label: 'Payments', icon: CreditCard },
+    { to: '/config', label: 'App Config', icon: Sliders },
     { to: '/audit', label: 'Audit Log', icon: ShieldCheck },
   ];
 
@@ -33,6 +35,7 @@ export const AdminLayout: React.FC = () => {
     if (location.pathname.startsWith('/overview')) return 'Overview & Analytics';
     if (location.pathname.startsWith('/students')) return 'Student Directory';
     if (location.pathname.startsWith('/payments')) return 'Payments Ledger';
+    if (location.pathname.startsWith('/config')) return 'App Configuration & Governance';
     if (location.pathname.startsWith('/audit')) return 'Audit Trail';
     return 'Command Center';
   };
@@ -68,14 +71,14 @@ export const AdminLayout: React.FC = () => {
           <Link
             to="/overview"
             className="socc-brand"
-            aria-label="Go to SOCC Overview"
+            aria-label="Go to Overview"
           >
             <div className="socc-brand-icon">
-              <Shield className="w-4 h-4" />
+              <Shield className="w-4 h-4 text-indigo-400" />
             </div>
             <div>
-              <span className="socc-brand-title">Student OS</span>
-              <span className="socc-brand-badge">SOCC</span>
+              <span className="socc-brand-title font-bold text-slate-100">Kryvlance</span>
+              <span className="socc-brand-badge text-indigo-400 font-medium ml-1.5">Admin</span>
             </div>
           </Link>
         </div>
@@ -108,14 +111,14 @@ export const AdminLayout: React.FC = () => {
                   to="/overview"
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex items-center gap-3 cursor-pointer"
-                  aria-label="Go to SOCC Overview"
+                  aria-label="Go to Overview"
                 >
                   <div className="socc-brand-icon-lg">
-                    <Shield className="w-4.5 h-4.5" />
+                    <Shield className="w-4.5 h-4.5 text-indigo-400" />
                   </div>
                   <div>
-                    <h2 className="socc-brand-title-lg">Student OS</h2>
-                    <p className="socc-brand-subtitle">Command Center</p>
+                    <h2 className="socc-brand-title-lg font-bold text-slate-100">Kryvlance</h2>
+                    <p className="socc-brand-subtitle text-xs text-indigo-400 font-medium">Student OS Admin</p>
                   </div>
                 </Link>
                 <button
@@ -152,7 +155,7 @@ export const AdminLayout: React.FC = () => {
               <div className="socc-session-status">
                 <div className="socc-live-indicator">
                   <span className="socc-live-dot" />
-                  <span className="socc-live-text">SOCC Engine Live</span>
+                  <span className="socc-live-text">Admin Engine Live</span>
                 </div>
                 <Badge variant="neutral" size="sm">
                   {adminProfile?.role
@@ -169,6 +172,9 @@ export const AdminLayout: React.FC = () => {
                 <LogOut className="w-3.5 h-3.5 mr-1.5" />
                 Sign Out
               </Button>
+              <div className="text-[10px] text-slate-500 text-center pt-2 mt-2 border-t border-slate-800/80">
+                © 2026 Kryvlance · Student OS Admin
+              </div>
             </div>
           </aside>
         </div>
@@ -181,18 +187,18 @@ export const AdminLayout: React.FC = () => {
           <Link
             to="/overview"
             className="socc-sidebar-brand"
-            aria-label="Go to SOCC Overview"
+            aria-label="Go to Overview"
           >
             <div className="flex items-center gap-3">
               <div className="socc-brand-icon-lg">
-                <Shield className="w-4.5 h-4.5" />
+                <Shield className="w-4.5 h-4.5 text-indigo-400" />
               </div>
               <div>
-                <h2 className="socc-brand-title-lg">Student OS</h2>
-                <p className="socc-brand-subtitle">Command Center</p>
+                <h2 className="socc-brand-title-lg font-bold text-slate-100 text-base">Kryvlance</h2>
+                <p className="socc-brand-subtitle text-xs text-indigo-400 font-medium">Student OS Admin</p>
               </div>
             </div>
-            <Badge variant="pro" size="sm">v1.0</Badge>
+            <Badge variant="pro" size="sm">Admin</Badge>
           </Link>
 
           {/* Desktop Vertical Navigation Menu */}
@@ -220,7 +226,7 @@ export const AdminLayout: React.FC = () => {
           <div className="socc-session-status">
             <div className="socc-live-indicator">
               <span className="socc-live-dot" />
-              <span className="socc-live-text">SOCC Engine Live</span>
+              <span className="socc-live-text">Admin Engine Live</span>
             </div>
             <Badge variant="neutral" size="sm">
               {adminProfile?.role
@@ -237,6 +243,9 @@ export const AdminLayout: React.FC = () => {
             <LogOut className="w-3.5 h-3.5 mr-1.5" />
             Sign Out
           </Button>
+          <div className="text-[10px] text-slate-500 text-center pt-2 mt-2 border-t border-slate-800/80">
+            © 2026 Kryvlance · Student OS Admin
+          </div>
         </div>
       </aside>
 
@@ -268,6 +277,10 @@ export const AdminLayout: React.FC = () => {
         <main className="socc-main-content">
           <Outlet />
         </main>
+
+        <footer className="px-6 py-4 text-center text-xs text-slate-500 border-t border-slate-800/50 mt-auto">
+          © 2026 Kryvlance · Student OS Admin
+        </footer>
       </div>
     </div>
   );

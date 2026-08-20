@@ -14,6 +14,7 @@ class StudentOsApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.studentos.app.config.AppConfigManager.initialize(this)
         NotificationChannels.createChannels(this)
         schedulePeriodicRevisionWorker()
     }

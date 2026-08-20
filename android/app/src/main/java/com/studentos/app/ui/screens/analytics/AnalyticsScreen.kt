@@ -59,6 +59,10 @@ import com.studentos.app.ui.components.StatCard
 fun AnalyticsScreen(viewModel: AnalyticsViewModel) {
     val uiState by viewModel.uiState.collectAsState()
 
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        viewModel.loadAnalytics()
+    }
+
     if (uiState.isLoading && uiState.analyticsData == null) {
         LoadingState("Loading Learning Analytics...")
         return

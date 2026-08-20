@@ -81,9 +81,8 @@ export const PlannerProvider: React.FC<{ children: React.ReactNode }> = ({ child
   useEffect(() => {
     if (token && deviceId) {
       loadTodayPlan(selectedDate);
-      loadWeeklyPlan();
     }
-  }, [token, deviceId, selectedDate, loadTodayPlan, loadWeeklyPlan]);
+  }, [token, deviceId, selectedDate, loadTodayPlan]);
 
   const createTask = async (input: CreatePlannerTaskInput): Promise<PlannerTaskDTO> => {
     if (!token || !deviceId) throw new Error('Unauthenticated');

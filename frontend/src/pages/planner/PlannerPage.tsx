@@ -30,6 +30,7 @@ export const PlannerPage: React.FC = () => {
     updateTaskStatus,
     rescheduleTask,
     deleteTask,
+    loadWeeklyPlan,
   } = usePlanner();
 
   const { subjects, chapters } = useStudy();
@@ -40,6 +41,10 @@ export const PlannerPage: React.FC = () => {
   const [taskToEdit, setTaskToEdit] = useState<PlannerTaskDTO | null>(null);
 
   const [isGoalModalOpen, setIsGoalModalOpen] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    loadWeeklyPlan();
+  }, [loadWeeklyPlan]);
 
   const handleOpenCreateModal = () => {
     setTaskToEdit(null);

@@ -29,7 +29,10 @@ import {
   ReactivateAccountRequestSchema,
   RevokeAllSessionsRequestSchema,
   DeleteAccountRequestSchema,
+  UpdateRemoteAppConfigSchema,
+  type RemoteAppConfig,
 } from '@student-os/shared';
+import { DEFAULT_REMOTE_APP_CONFIG } from '../app/app.config.js';
 
 export const adminRouter = new Hono<{
   Bindings: Env;
@@ -703,5 +706,251 @@ adminRouter.post('/users/:accountId/deactivate', requireAdminPermission('user.up
 adminRouter.post('/users/:accountId/reactivate', requireAdminPermission('user.update'), handleReactivateAccount);
 adminRouter.post('/users/:accountId/revoke-sessions', requireAdminPermission('user.update'), handleRevokeAllSessions);
 adminRouter.delete('/users/:accountId', requireAdminPermission('user.delete'), handleDeleteAccount);
+
+// ----------------------------------------------------
+// I. App Configuration & Version Governance
+// ----------------------------------------------------
+adminRouter.get('/app/config', requireAdminPermission('config.update'), async (c) => {
+  let config: RemoteAppConfig = { ...DEFAULT_REMOTE_APP_CONFIG };
+  if (c.env?.DB) {
+    try {
+      const row = await c.env.DB.prepare(
+        'SELECT config_json FROM app_config WHERE id = ? LIMIT 1'
+      )
+        .bind('default')
+        .first<{ config_json: string }>();
+      if (row?.config_json) {
+        const parsed = JSON.parse(row.config_json);
+        config = {
+          ...DEFAULT_REMOTE_APP_CONFIG,
+          ...parsed,
+          features: {
+            ...DEFAULT_REMOTE_APP_CONFIG.features,
+            ...(parsed.features || {}),
+          },
+        };
+      }
+    } catch {
+      // Table doesn't exist yet
+    }
+  }
+  return c.json({ success: true, data: config }, 200);
+});
+
+adminRouter.put('/app/config', requireAdminPermission('config.update'), async (c) => {
+  const body = await c.req.json().catch(() => ({}));
+  const parseResult = UpdateRemoteAppConfigSchema.safeParse(body);
+  if (!parseResult.success) {
+    return c.json(
+      {
+        success: false,
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: parseResult.error.errors[0]?.message || 'Invalid configuration payload',
+        },
+        timestamp: new Date().toISOString(),
+      },
+      400
+    );
+  }
+
+  const updates = parseResult.data;
+
+  // Retrieve current config
+  let currentConfig: RemoteAppConfig = { ...DEFAULT_REMOTE_APP_CONFIG };
+  if (c.env?.DB) {
+    try {
+      const row = await c.env.DB.prepare(
+        'SELECT config_json FROM app_config WHERE id = ? LIMIT 1'
+      )
+        .bind('default')
+        .first<{ config_json: string }>();
+      if (row?.config_json) {
+        const parsed = JSON.parse(row.config_json);
+        currentConfig = {
+          ...DEFAULT_REMOTE_APP_CONFIG,
+          ...parsed,
+          features: {
+            ...DEFAULT_REMOTE_APP_CONFIG.features,
+            ...(parsed.features || {}),
+          },
+        };
+      }
+    } catch {
+      // Table doesn't exist yet
+    }
+  }
+
+  const mergedConfig: RemoteAppConfig = {
+    ...currentConfig,
+    ...updates,
+    features: {
+      ...currentConfig.features,
+      ...(updates.features || {}),
+    },
+    announcements: updates.announcements ?? currentConfig.announcements,
+  };
+
+  // Validation rules:
+  // 1. Version codes ordering
+  if (mergedConfig.minimumSupportedVersionCode > mergedConfig.latestVersionCode) {
+    return c.json(
+      {
+        success: false,
+        error: {
+          code: 'INVALID_VERSION_ORDER',
+          message: 'minimumSupportedVersionCode cannot be greater than latestVersionCode',
+        },
+        timestamp: new Date().toISOString(),
+      },
+      400
+    );
+  }
+
+  // 2. HTTPS enforcement on URLs
+  const urlsToCheck = [
+    mergedConfig.webUrl,
+    mergedConfig.githubReleaseUrl,
+    mergedConfig.githubLatestReleaseUrl,
+    mergedConfig.githubLatestApkUrl,
+    mergedConfig.helpUrl,
+  ];
+  for (const u of urlsToCheck) {
+    if (u && !u.startsWith('https://')) {
+      return c.json(
+        {
+          success: false,
+          error: {
+            code: 'INSECURE_URL',
+            message: `URL '${u}' must use HTTPS`,
+          },
+          timestamp: new Date().toISOString(),
+        },
+        400
+      );
+    }
+  }
+
+  // 3. GitHub domain enforcement for release URLs
+  const githubUrls = [
+    mergedConfig.githubReleaseUrl,
+    mergedConfig.githubLatestReleaseUrl,
+    mergedConfig.githubLatestApkUrl,
+  ];
+  for (const ghUrl of githubUrls) {
+    if (ghUrl) {
+      try {
+        const parsedUrl = new URL(ghUrl);
+        const host = parsedUrl.hostname.toLowerCase();
+        const isValidGitHubHost =
+          host === 'github.com' ||
+          host.endsWith('.github.com') ||
+          host === 'objects.githubusercontent.com' ||
+          host.endsWith('.githubusercontent.com');
+
+        if (!isValidGitHubHost) {
+          return c.json(
+            {
+              success: false,
+              error: {
+                code: 'INVALID_GITHUB_URL',
+                message: `GitHub URL '${ghUrl}' must point to github.com or githubusercontent.com`,
+              },
+              timestamp: new Date().toISOString(),
+            },
+            400
+          );
+        }
+      } catch {
+        return c.json(
+          {
+            success: false,
+            error: {
+              code: 'INVALID_URL',
+              message: `Invalid URL format: ${ghUrl}`,
+            },
+            timestamp: new Date().toISOString(),
+          },
+          400
+        );
+      }
+    }
+  }
+
+  // 4. SHA-256 Checksum validation if provided
+  if (mergedConfig.latestApkSha256) {
+    if (!/^[a-fA-F0-9]{64}$/.test(mergedConfig.latestApkSha256)) {
+      return c.json(
+        {
+          success: false,
+          error: {
+            code: 'INVALID_CHECKSUM',
+            message: 'latestApkSha256 must be a valid 64-character hexadecimal SHA-256 string',
+          },
+          timestamp: new Date().toISOString(),
+        },
+        400
+      );
+    }
+  }
+
+  // Save to D1
+  if (c.env?.DB) {
+    await c.env.DB.prepare(
+      `CREATE TABLE IF NOT EXISTS app_config (
+        id TEXT PRIMARY KEY,
+        config_json TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        updated_by TEXT
+      )`
+    ).run();
+
+    const adminAccountId = c.get('accountId') || 'admin';
+    const now = new Date().toISOString();
+
+    await c.env.DB.prepare(
+      `INSERT INTO app_config (id, config_json, updated_at, updated_by)
+       VALUES ('default', ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         config_json = excluded.config_json,
+         updated_at = excluded.updated_at,
+         updated_by = excluded.updated_by`
+    )
+      .bind(JSON.stringify(mergedConfig), now, adminAccountId)
+      .run();
+
+    // Record audit log entry
+    try {
+      await c.env.DB.prepare(
+        `INSERT INTO entitlement_audit_logs (
+          id, account_id, event_type, plan_id, granted_by, source, start_date, created_at, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+        .bind(
+          crypto.randomUUID(),
+          adminAccountId,
+          'APP_CONFIG_UPDATED',
+          'system',
+          adminAccountId,
+          'admin_console',
+          now,
+          now,
+          JSON.stringify({ updatedKeys: Object.keys(updates) })
+        )
+        .run();
+    } catch {
+      // Audit log fallback
+    }
+  }
+
+  return c.json(
+    {
+      success: true,
+      data: mergedConfig,
+      timestamp: new Date().toISOString(),
+    },
+    200
+  );
+});
 
 

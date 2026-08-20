@@ -106,6 +106,7 @@ fun PlannerScreen(
 
     androidx.compose.runtime.LaunchedEffect(Unit) {
         viewModel.loadDailyPlan()
+        viewModel.loadSubjects()
     }
 
     if (uiState.isLoading && uiState.dailyPlan == null && uiState.plannerViewMode == PlannerViewMode.DAILY) {

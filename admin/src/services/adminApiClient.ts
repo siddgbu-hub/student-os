@@ -119,6 +119,13 @@ export class AdminApiClient {
     });
   }
 
+  async put<T>(endpoint: string, body?: unknown): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  }
+
   async delete<T>(endpoint: string, body?: unknown): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'DELETE',
@@ -258,6 +265,16 @@ export class AdminApiClient {
     reason?: string
   ): Promise<{ success: boolean; data: { message: string; accountId: string } }> {
     return this.delete(`/api/v1/admin/accounts/${accountId}`, { reason });
+  }
+
+  async getAppConfig(): Promise<{ success: boolean; data: import('@student-os/shared').RemoteAppConfig }> {
+    return this.get('/api/v1/admin/app/config');
+  }
+
+  async updateAppConfig(
+    config: import('@student-os/shared').UpdateRemoteAppConfig
+  ): Promise<{ success: boolean; data: import('@student-os/shared').RemoteAppConfig }> {
+    return this.put('/api/v1/admin/app/config', config);
   }
 }
 

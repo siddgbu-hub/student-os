@@ -126,6 +126,7 @@ class FullMockD1Database {
   public devices: Map<string, MockDevice> = new Map();
   public sessions: Map<string, MockSession> = new Map();
   public auditLogs: Map<string, MockAuditLog> = new Map();
+  public appConfig: string | null = null;
 
   prepare(query: string) {
     const db = this;
@@ -137,6 +138,9 @@ class FullMockD1Database {
         return createStatement(newParams);
       },
       async first<T>(): Promise<T | null> {
+        if (query.includes('FROM app_config WHERE id = ?')) {
+          return db.appConfig ? ({ config_json: db.appConfig } as unknown as T) : null;
+        }
         // Sessions check for auth middleware
         if (query.includes('FROM sessions WHERE session_id = ?')) {
           const sessionId = params[0] as string;
@@ -387,6 +391,26 @@ class FullMockD1Database {
         return { results: [] };
       },
       async run() {
+        if (query.includes('INSERT INTO app_config')) {
+          db.appConfig = params[0] as string;
+          return { success: true };
+        }
+        if (query.includes('INSERT INTO entitlement_audit_logs')) {
+          const [id, account_id, event_type, plan_id, granted_by, source, start_date, created_at, details] = params as any[];
+          db.auditLogs.set(id, {
+            id,
+            account_id,
+            event_type,
+            plan_id,
+            granted_by,
+            source,
+            start_date,
+            expiry_date: null,
+            details: details || '',
+            created_at,
+          });
+          return { success: true };
+        }
         if (query.includes('UPDATE devices SET last_active_at = ?')) {
           return { success: true };
         }
@@ -1736,6 +1760,120 @@ describe('PHASE 3 — Admin REST APIs Controller Tests', () => {
       );
       expect(res.status).toBe(200);
       expect(mockDb.accounts.has(tempId)).toBe(false);
+    });
+
+    it('43. GET /api/v1/admin/app/config requires authentication and admin privileges', async () => {
+      const app = createTestApp();
+      // Unauthenticated
+      const resUnauth = await app.request('/api/v1/admin/app/config', { method: 'GET' }, testEnv());
+      expect(resUnauth.status).toBe(401);
+
+      // Non-admin student
+      const studentHeaders = await createAuthHeaders(STUDENT_ID);
+      const resStudent = await app.request('/api/v1/admin/app/config', { method: 'GET', headers: studentHeaders }, testEnv());
+      expect(resStudent.status).toBe(403);
+
+      // Authorized Owner Admin
+      const ownerHeaders = await createAuthHeaders(OWNER_ADMIN_ID);
+      const resOwner = await app.request('/api/v1/admin/app/config', { method: 'GET', headers: ownerHeaders }, testEnv());
+      expect(resOwner.status).toBe(200);
+      const body = (await resOwner.json()) as any;
+      expect(body.success).toBe(true);
+      expect(body.data.githubLatestApkUrl).toBeDefined();
+    });
+
+    it('44. PUT /api/v1/admin/app/config validates version ordering', async () => {
+      const app = createTestApp();
+      const ownerHeaders = await createAuthHeaders(OWNER_ADMIN_ID);
+      const res = await app.request(
+        '/api/v1/admin/app/config',
+        {
+          method: 'PUT',
+          headers: { ...ownerHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            minimumSupportedVersionCode: 10,
+            latestVersionCode: 5,
+          }),
+        },
+        testEnv()
+      );
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as any;
+      expect(body.error.code).toBe('INVALID_VERSION_ORDER');
+    });
+
+    it('45. PUT /api/v1/admin/app/config rejects non-GitHub URLs', async () => {
+      const app = createTestApp();
+      const ownerHeaders = await createAuthHeaders(OWNER_ADMIN_ID);
+      const res = await app.request(
+        '/api/v1/admin/app/config',
+        {
+          method: 'PUT',
+          headers: { ...ownerHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            githubLatestApkUrl: 'https://malicious.com/download.apk',
+          }),
+        },
+        testEnv()
+      );
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as any;
+      expect(body.error.code).toBe('INVALID_GITHUB_URL');
+    });
+
+    it('46. PUT /api/v1/admin/app/config rejects invalid SHA-256 format', async () => {
+      const app = createTestApp();
+      const ownerHeaders = await createAuthHeaders(OWNER_ADMIN_ID);
+      const res = await app.request(
+        '/api/v1/admin/app/config',
+        {
+          method: 'PUT',
+          headers: { ...ownerHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            latestApkSha256: 'invalid-checksum',
+          }),
+        },
+        testEnv()
+      );
+      expect(res.status).toBe(400);
+    });
+
+    it('47. PUT /api/v1/admin/app/config successfully mutates config and persists to D1', async () => {
+      const app = createTestApp();
+      const ownerHeaders = await createAuthHeaders(OWNER_ADMIN_ID);
+      const res = await app.request(
+        '/api/v1/admin/app/config',
+        {
+          method: 'PUT',
+          headers: { ...ownerHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            latestVersion: '1.0.6',
+            latestVersionCode: 7,
+            githubLatestReleaseUrl: 'https://github.com/siddgbu-hub/student-os/releases/tag/v1.0.6',
+            githubLatestApkUrl: 'https://github.com/siddgbu-hub/student-os/releases/download/v1.0.6/student-os-v1.0.6.apk',
+            latestApkSha256: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+            maintenanceMode: true,
+            maintenanceMessage: 'Scheduled maintenance underway',
+            features: {
+              analytics: false,
+            },
+          }),
+        },
+        testEnv()
+      );
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as any;
+      expect(body.success).toBe(true);
+      expect(body.data.latestVersion).toBe('1.0.6');
+      expect(body.data.latestVersionCode).toBe(7);
+      expect(body.data.maintenanceMode).toBe(true);
+      expect(body.data.features.analytics).toBe(false);
+      expect(body.data.features.planner).toBe(true);
+
+      // Verify stored config in mock D1
+      expect(mockDb.appConfig).toBeDefined();
+      const parsedStored = JSON.parse(mockDb.appConfig!);
+      expect(parsedStored.latestVersion).toBe('1.0.6');
     });
   });
 });

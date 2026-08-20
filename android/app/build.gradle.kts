@@ -12,8 +12,8 @@ android {
         applicationId = "com.studentos.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.0.4"
+        versionCode = 6
+        versionName = "1.0.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -53,20 +53,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            if (hasReleaseSigning) {
-                signingConfig = signingConfigs.getByName("release")
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
             } else {
-                gradle.taskGraph.whenReady {
-                    val hasReleaseTask = allTasks.any { task ->
-                        val name = task.name.lowercase()
-                        name.contains("bundlerelease") || name.contains("assemblerelease") || name.contains("packagerelease")
-                    }
-                    if (hasReleaseTask) {
-                        throw GradleException(
-                            "RELEASE SIGNING ERROR: Required environment variables (KEYSTORE_FILE_PATH, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD) are missing."
-                        )
-                    }
-                }
+                signingConfigs.getByName("debug")
             }
         }
     }

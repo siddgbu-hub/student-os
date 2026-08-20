@@ -29,12 +29,13 @@ describe('SOCC LoginPage — Email OTP Authentication Flow Tests', () => {
     vi.restoreAllMocks();
   });
 
-  it('1. renders Step 1 email form with correct SOCC branding and NO JWT inputs', () => {
+  it('1. renders Step 1 email form with correct Kryvlance / Student OS Admin branding and NO JWT inputs', () => {
     renderLoginPage();
 
-    // Verify SOCC branding
-    expect(screen.getByText('Student OS Command Center')).toBeDefined();
-    expect(screen.getByText('SOCC V1 — Internal Owner Control Console')).toBeDefined();
+    // Verify Kryvlance & Student OS Admin branding
+    expect(screen.getByText('Kryvlance')).toBeDefined();
+    expect(screen.getByText('Student OS Admin')).toBeDefined();
+    expect(screen.getByText('Control Plane & Governance Console')).toBeDefined();
 
     // Verify Step 1 elements
     expect(screen.getByLabelText(/Owner \/ Admin Email Address/i)).toBeDefined();

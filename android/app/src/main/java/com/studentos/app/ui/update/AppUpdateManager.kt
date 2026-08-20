@@ -338,6 +338,104 @@ object AppUpdateManager {
         processVerifiedApk(context, apkFile)
     }
 
+    suspend fun startDirectApkDownload(
+        context: Context,
+        versionName: String,
+        apkUrl: String,
+        expectedSha256: String? = null
+    ) {
+        if (_installState.value is UpdateInstallState.Downloading) {
+            Log.d(TAG, "[Update:DOWNLOAD] already in progress, ignoring duplicate request")
+            return
+        }
+
+        if (!com.studentos.app.config.isValidGitHubDownloadUrl(apkUrl)) {
+            Log.e(TAG, "[Update:URL_INVALID] Insecure or non-GitHub URL: $apkUrl")
+            val errorMsg = "Update blocked: APK download URL must be a secure GitHub Release URL."
+            _installState.value = UpdateInstallState.Failed(errorMsg)
+            _downloadState.value = DownloadState.Failed(errorMsg)
+            return
+        }
+
+        _installState.value = UpdateInstallState.Downloading(0)
+        _downloadState.value = DownloadState.Progress(0)
+        Log.d(TAG, "[Update:DOWNLOAD] starting url=$apkUrl")
+
+        val apkFile: File
+        try {
+            apkFile = withContext(Dispatchers.IO) {
+                val updateDir = File(context.filesDir, APK_SUBDIR).also { it.mkdirs() }
+                val file = File(updateDir, "StudentOS-v${versionName}.apk")
+
+                val request = Request.Builder()
+                    .url(apkUrl)
+                    .get()
+                    .build()
+
+                httpClient.newCall(request).execute().use { response ->
+                    if (!response.isSuccessful) {
+                        throw Exception("Server responded ${response.code}")
+                    }
+                    val body = response.body ?: throw Exception("Empty response body")
+                    val totalBytes = body.contentLength()
+
+                    body.byteStream().use { input ->
+                        file.outputStream().use { output ->
+                            val buffer = ByteArray(8192)
+                            var bytesWritten = 0L
+                            var lastReportedPercent = -1
+
+                            var read: Int
+                            while (input.read(buffer).also { read = it } != -1) {
+                                output.write(buffer, 0, read)
+                                bytesWritten += read
+                                val percent = if (totalBytes > 0) {
+                                    ((bytesWritten * 100) / totalBytes).toInt().coerceIn(0, 100)
+                                } else 0
+
+                                if (percent != lastReportedPercent) {
+                                    _installState.value = UpdateInstallState.Downloading(percent)
+                                    _downloadState.value = DownloadState.Progress(percent)
+                                    lastReportedPercent = percent
+                                }
+                            }
+                        }
+                    }
+                }
+
+                file
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "[Update:DOWNLOAD_FAILED] ${e.message}")
+            val errorMsg = "Download failed: ${e.message ?: "Unknown error"}"
+            _installState.value = UpdateInstallState.Failed(errorMsg)
+            _downloadState.value = DownloadState.Failed(errorMsg)
+            return
+        }
+
+        // SHA-256 integrity verification if provided
+        if (!expectedSha256.isNullOrBlank()) {
+            _installState.value = UpdateInstallState.Verifying
+            val downloadedSha256 = withContext(Dispatchers.IO) { sha256Hex(apkFile) }
+            val targetSha256 = expectedSha256.trim().lowercase()
+
+            Log.d(TAG, "[Update:SHA256] expected=$targetSha256 actual=$downloadedSha256")
+
+            if (downloadedSha256 != targetSha256) {
+                Log.e(TAG, "[Update:SHA256_MISMATCH] deleting corrupted file")
+                apkFile.delete()
+                val errorMsg = "Update verification failed. The downloaded APK checksum did not match the release checksum."
+                _installState.value = UpdateInstallState.Failed(errorMsg)
+                _downloadState.value = DownloadState.Failed(errorMsg)
+                return
+            }
+        }
+
+        Log.d(TAG, "[Update:VERIFIED] file verified, proceeding to installation")
+        pendingApkFile = apkFile
+        processVerifiedApk(context, apkFile)
+    }
+
     // -----------------------------------------------------------------------
     // 6. Process verified APK & evaluate install permission
     // -----------------------------------------------------------------------

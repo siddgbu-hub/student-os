@@ -7,6 +7,8 @@ import com.studentos.app.data.model.DeviceSessionDto
 import com.studentos.app.data.model.UpdatePreferencesInputDto
 import com.studentos.app.data.model.UpdateProfileInputDto
 import com.studentos.app.data.repository.StudentOsRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,34 +42,37 @@ class AccountViewModel(private val repository: StudentOsRepository) : ViewModel(
     private val _uiState = MutableStateFlow(AccountUiState())
     val uiState: StateFlow<AccountUiState> = _uiState.asStateFlow()
 
-    init {
-        loadAccountData()
-    }
-
     fun loadAccountData() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
-            val res = repository.getAccountOverview()
-            val entitlementRes = repository.getEntitlementStatus()
-            val plansRes = repository.getPlans()
-            val paymentConfigRes = repository.getPaymentConfig()
+            coroutineScope {
+                val overviewDeferred = async { repository.getAccountOverview() }
+                val entitlementDeferred = async { repository.getEntitlementStatus() }
+                val plansDeferred = async { repository.getPlans() }
+                val paymentConfigDeferred = async { repository.getPaymentConfig() }
 
-            res.onSuccess { data ->
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    overview = data,
-                    entitlement = entitlementRes.getOrNull(),
-                    plans = plansRes.getOrNull() ?: emptyList(),
-                    paymentConfig = paymentConfigRes.getOrNull()
-                )
-            }.onFailure { err ->
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    entitlement = entitlementRes.getOrNull(),
-                    plans = plansRes.getOrNull() ?: emptyList(),
-                    paymentConfig = paymentConfigRes.getOrNull(),
-                    errorMessage = err.message
-                )
+                val res = overviewDeferred.await()
+                val entitlementRes = entitlementDeferred.await()
+                val plansRes = plansDeferred.await()
+                val paymentConfigRes = paymentConfigDeferred.await()
+
+                res.onSuccess { data ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        overview = data,
+                        entitlement = entitlementRes.getOrNull(),
+                        plans = plansRes.getOrNull() ?: emptyList(),
+                        paymentConfig = paymentConfigRes.getOrNull()
+                    )
+                }.onFailure { err ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        entitlement = entitlementRes.getOrNull(),
+                        plans = plansRes.getOrNull() ?: emptyList(),
+                        paymentConfig = paymentConfigRes.getOrNull(),
+                        errorMessage = err.message
+                    )
+                }
             }
         }
     }
@@ -81,20 +86,27 @@ class AccountViewModel(private val repository: StudentOsRepository) : ViewModel(
 
         viewModelScope.launch {
             try {
-                val res = repository.getAccountOverview()
-                val entitlementRes = repository.getEntitlementStatus()
-                val plansRes = repository.getPlans()
-                val paymentConfigRes = repository.getPaymentConfig()
+                coroutineScope {
+                    val resDeferred = async { repository.getAccountOverview() }
+                    val entitlementDeferred = async { repository.getEntitlementStatus() }
+                    val plansDeferred = async { repository.getPlans() }
+                    val paymentConfigDeferred = async { repository.getPaymentConfig() }
 
-                val isFailure = res.isFailure && entitlementRes.isFailure
+                    val res = resDeferred.await()
+                    val entitlementRes = entitlementDeferred.await()
+                    val plansRes = plansDeferred.await()
+                    val paymentConfigRes = paymentConfigDeferred.await()
 
-                _uiState.value = _uiState.value.copy(
-                    overview = res.getOrNull() ?: _uiState.value.overview,
-                    entitlement = entitlementRes.getOrNull() ?: _uiState.value.entitlement,
-                    plans = plansRes.getOrNull() ?: _uiState.value.plans,
-                    paymentConfig = paymentConfigRes.getOrNull() ?: _uiState.value.paymentConfig,
-                    refreshMessage = if (isFailure) "Couldn't refresh. Check your connection and try again." else "Updated just now"
-                )
+                    val isFailure = res.isFailure && entitlementRes.isFailure
+
+                    _uiState.value = _uiState.value.copy(
+                        overview = res.getOrNull() ?: _uiState.value.overview,
+                        entitlement = entitlementRes.getOrNull() ?: _uiState.value.entitlement,
+                        plans = plansRes.getOrNull() ?: _uiState.value.plans,
+                        paymentConfig = paymentConfigRes.getOrNull() ?: _uiState.value.paymentConfig,
+                        refreshMessage = if (isFailure) "Couldn't refresh. Check your connection and try again." else "Updated just now"
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     refreshMessage = "Couldn't refresh. Check your connection and try again."

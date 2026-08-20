@@ -10,6 +10,8 @@ import com.studentos.app.data.model.GoalProgressDto
 import com.studentos.app.data.model.StudySessionDto
 import com.studentos.app.data.model.TodaySessionsSummaryDto
 import com.studentos.app.data.repository.StudentOsRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,7 +58,13 @@ class DashboardViewModel(private val repository: StudentOsRepository) : ViewMode
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
 
     init {
-        loadDashboardData()
+        viewModelScope.launch {
+            repository.tokenFlow.collect { token ->
+                if (!token.isNullOrEmpty()) {
+                    loadDashboardData()
+                }
+            }
+        }
     }
 
     fun loadDashboardData() {
@@ -64,32 +72,45 @@ class DashboardViewModel(private val repository: StudentOsRepository) : ViewMode
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
-            val overviewResult = repository.getAccountOverview()
-            val todaySummaryResult = repository.getTodaySessionsSummary()
-            val dailyPlanResult = repository.getDailyPlan(todayStr)
-            val revisionResult = repository.getRevisionDueToday()
-            val analyticsResult = repository.getAnalyticsDashboard("this_week")
-            val activeSessionResult = repository.getActiveStudySession()
-            val goalResult = repository.getGoalProgress()
-            val entitlementResult = repository.getEntitlementStatus()
-            val plansResult = repository.getPlans()
-            val paymentConfigResult = repository.getPaymentConfig()
+            coroutineScope {
+                val overviewDeferred = async { repository.getAccountOverview() }
+                val todaySummaryDeferred = async { repository.getTodaySessionsSummary() }
+                val dailyPlanDeferred = async { repository.getDailyPlan(todayStr) }
+                val revisionDeferred = async { repository.getRevisionDueToday() }
+                val analyticsDeferred = async { repository.getAnalyticsDashboard("this_week") }
+                val activeSessionDeferred = async { repository.getActiveStudySession() }
+                val goalDeferred = async { repository.getGoalProgress() }
+                val entitlementDeferred = async { repository.getEntitlementStatus() }
+                val plansDeferred = async { repository.getPlans() }
+                val paymentConfigDeferred = async { repository.getPaymentConfig() }
 
-            _uiState.value = _uiState.value.copy(
-                isLoading = false,
-                accountOverview = overviewResult.getOrNull(),
-                todaySummary = todaySummaryResult.getOrNull(),
-                dailyPlan = dailyPlanResult.getOrNull(),
-                revisionSummary = revisionResult.getOrNull(),
-                analyticsDashboard = analyticsResult.getOrNull(),
-                activeSession = activeSessionResult.getOrNull(),
-                goalProgress = goalResult.getOrNull(),
-                entitlement = entitlementResult.getOrNull(),
-                plans = plansResult.getOrNull() ?: emptyList(),
-                paymentConfig = paymentConfigResult.getOrNull(),
-                errorMessage = overviewResult.exceptionOrNull()?.message
-                    ?: todaySummaryResult.exceptionOrNull()?.message
-            )
+                val overviewResult = overviewDeferred.await()
+                val todaySummaryResult = todaySummaryDeferred.await()
+                val dailyPlanResult = dailyPlanDeferred.await()
+                val revisionResult = revisionDeferred.await()
+                val analyticsResult = analyticsDeferred.await()
+                val activeSessionResult = activeSessionDeferred.await()
+                val goalResult = goalDeferred.await()
+                val entitlementResult = entitlementDeferred.await()
+                val plansResult = plansDeferred.await()
+                val paymentConfigResult = paymentConfigDeferred.await()
+
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    accountOverview = overviewResult.getOrNull(),
+                    todaySummary = todaySummaryResult.getOrNull(),
+                    dailyPlan = dailyPlanResult.getOrNull(),
+                    revisionSummary = revisionResult.getOrNull(),
+                    analyticsDashboard = analyticsResult.getOrNull(),
+                    activeSession = activeSessionResult.getOrNull(),
+                    goalProgress = goalResult.getOrNull(),
+                    entitlement = entitlementResult.getOrNull(),
+                    plans = plansResult.getOrNull() ?: emptyList(),
+                    paymentConfig = paymentConfigResult.getOrNull(),
+                    errorMessage = overviewResult.exceptionOrNull()?.message
+                        ?: todaySummaryResult.exceptionOrNull()?.message
+                )
+            }
         }
     }
 
@@ -104,32 +125,45 @@ class DashboardViewModel(private val repository: StudentOsRepository) : ViewMode
             try {
                 val todayStr = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
-                val overviewResult = repository.getAccountOverview()
-                val todaySummaryResult = repository.getTodaySessionsSummary()
-                val dailyPlanResult = repository.getDailyPlan(todayStr)
-                val revisionResult = repository.getRevisionDueToday()
-                val analyticsResult = repository.getAnalyticsDashboard("this_week")
-                val activeSessionResult = repository.getActiveStudySession()
-                val goalResult = repository.getGoalProgress()
-                val entitlementResult = repository.getEntitlementStatus()
-                val plansResult = repository.getPlans()
-                val paymentConfigResult = repository.getPaymentConfig()
+                coroutineScope {
+                    val overviewDeferred = async { repository.getAccountOverview() }
+                    val todaySummaryDeferred = async { repository.getTodaySessionsSummary() }
+                    val dailyPlanDeferred = async { repository.getDailyPlan(todayStr) }
+                    val revisionDeferred = async { repository.getRevisionDueToday() }
+                    val analyticsDeferred = async { repository.getAnalyticsDashboard("this_week") }
+                    val activeSessionDeferred = async { repository.getActiveStudySession() }
+                    val goalDeferred = async { repository.getGoalProgress() }
+                    val entitlementDeferred = async { repository.getEntitlementStatus() }
+                    val plansDeferred = async { repository.getPlans() }
+                    val paymentConfigDeferred = async { repository.getPaymentConfig() }
 
-                val isFailure = overviewResult.isFailure && todaySummaryResult.isFailure && entitlementResult.isFailure
+                    val overviewResult = overviewDeferred.await()
+                    val todaySummaryResult = todaySummaryDeferred.await()
+                    val dailyPlanResult = dailyPlanDeferred.await()
+                    val revisionResult = revisionDeferred.await()
+                    val analyticsResult = analyticsDeferred.await()
+                    val activeSessionResult = activeSessionDeferred.await()
+                    val goalResult = goalDeferred.await()
+                    val entitlementResult = entitlementDeferred.await()
+                    val plansResult = plansDeferred.await()
+                    val paymentConfigResult = paymentConfigDeferred.await()
 
-                _uiState.value = _uiState.value.copy(
-                    accountOverview = overviewResult.getOrNull() ?: _uiState.value.accountOverview,
-                    todaySummary = todaySummaryResult.getOrNull() ?: _uiState.value.todaySummary,
-                    dailyPlan = dailyPlanResult.getOrNull() ?: _uiState.value.dailyPlan,
-                    revisionSummary = revisionResult.getOrNull() ?: _uiState.value.revisionSummary,
-                    analyticsDashboard = analyticsResult.getOrNull() ?: _uiState.value.analyticsDashboard,
-                    activeSession = activeSessionResult.getOrNull() ?: _uiState.value.activeSession,
-                    goalProgress = goalResult.getOrNull() ?: _uiState.value.goalProgress,
-                    entitlement = entitlementResult.getOrNull() ?: _uiState.value.entitlement,
-                    plans = plansResult.getOrNull() ?: _uiState.value.plans,
-                    paymentConfig = paymentConfigResult.getOrNull() ?: _uiState.value.paymentConfig,
-                    refreshMessage = if (isFailure) "Couldn't refresh. Check your connection and try again." else "Updated just now"
-                )
+                    val isFailure = overviewResult.isFailure && todaySummaryResult.isFailure && entitlementResult.isFailure
+
+                    _uiState.value = _uiState.value.copy(
+                        accountOverview = overviewResult.getOrNull() ?: _uiState.value.accountOverview,
+                        todaySummary = todaySummaryResult.getOrNull() ?: _uiState.value.todaySummary,
+                        dailyPlan = dailyPlanResult.getOrNull() ?: _uiState.value.dailyPlan,
+                        revisionSummary = revisionResult.getOrNull() ?: _uiState.value.revisionSummary,
+                        analyticsDashboard = analyticsResult.getOrNull() ?: _uiState.value.analyticsDashboard,
+                        activeSession = activeSessionResult.getOrNull() ?: _uiState.value.activeSession,
+                        goalProgress = goalResult.getOrNull() ?: _uiState.value.goalProgress,
+                        entitlement = entitlementResult.getOrNull() ?: _uiState.value.entitlement,
+                        plans = plansResult.getOrNull() ?: _uiState.value.plans,
+                        paymentConfig = paymentConfigResult.getOrNull() ?: _uiState.value.paymentConfig,
+                        refreshMessage = if (isFailure) "Couldn't refresh. Check your connection and try again." else "Updated just now"
+                    )
+                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     refreshMessage = "Couldn't refresh. Check your connection and try again."
