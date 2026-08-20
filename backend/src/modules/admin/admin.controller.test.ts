@@ -138,7 +138,7 @@ class FullMockD1Database {
         return createStatement(newParams);
       },
       async first<T>(): Promise<T | null> {
-        if (query.includes('FROM app_config WHERE id = ?')) {
+        if (query.includes('FROM remote_app_config WHERE id = ?') || query.includes('FROM app_config WHERE id = ?')) {
           return db.appConfig ? ({ config_json: db.appConfig } as unknown as T) : null;
         }
         // Sessions check for auth middleware
@@ -391,7 +391,7 @@ class FullMockD1Database {
         return { results: [] };
       },
       async run() {
-        if (query.includes('INSERT INTO app_config')) {
+        if (query.includes('INSERT INTO remote_app_config') || query.includes('INSERT INTO app_config')) {
           db.appConfig = params[0] as string;
           return { success: true };
         }

@@ -1,6 +1,6 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "student-os-backend",
+	"name": "student-os-backend-production",
 	"main": "src/index.ts",
 	"compatibility_date": "2026-02-01",
 	"compatibility_flags": [
@@ -27,31 +27,12 @@
 			"bucket_name": "student-os-storage"
 		}
 	],
-	"env": {
-		"production": {
-			"vars": {
-				"ENVIRONMENT": "production",
-				"ALLOWED_ORIGIN": "https://studentos.kryvlance.in,https://admin.studentos.kryvlance.in",
-				"BREVO_FROM_EMAIL": "noreply@studentos.kryvlance.in",
-				"BREVO_FROM_NAME": "Student OS",
-				"GOOGLE_CLIENT_ID": "272183133963-1scshesrdvt7s6ke9g0rco15rapack7t.apps.googleusercontent.com"
-			},
-			"d1_databases": [
-				{
-					"binding": "DB",
-					"database_name": "student-os-db",
-					"database_id": "ba828b17-5c24-4303-9c31-1375a123361f",
-					"migrations_dir": "../database/migrations"
-				}
-			],
-			"r2_buckets": [
-				{
-					"binding": "BUCKET",
-					"bucket_name": "student-os-storage"
-				}
-			]
+	"routes": [
+		{
+			"pattern": "api.studentos.kryvlance.in",
+			"custom_domain": true
 		}
-	},
+	],
 	"dev": {
 		"port": 8789
 	}

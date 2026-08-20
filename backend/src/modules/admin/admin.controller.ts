@@ -715,7 +715,7 @@ adminRouter.get('/app/config', requireAdminPermission('config.update'), async (c
   if (c.env?.DB) {
     try {
       const row = await c.env.DB.prepare(
-        'SELECT config_json FROM app_config WHERE id = ? LIMIT 1'
+        'SELECT config_json FROM remote_app_config WHERE id = ? LIMIT 1'
       )
         .bind('default')
         .first<{ config_json: string }>();
@@ -761,7 +761,7 @@ adminRouter.put('/app/config', requireAdminPermission('config.update'), async (c
   if (c.env?.DB) {
     try {
       const row = await c.env.DB.prepare(
-        'SELECT config_json FROM app_config WHERE id = ? LIMIT 1'
+        'SELECT config_json FROM remote_app_config WHERE id = ? LIMIT 1'
       )
         .bind('default')
         .first<{ config_json: string }>();
@@ -871,7 +871,7 @@ adminRouter.put('/app/config', requireAdminPermission('config.update'), async (c
             },
             timestamp: new Date().toISOString(),
           },
-          400
+            400
         );
       }
     }
@@ -897,7 +897,7 @@ adminRouter.put('/app/config', requireAdminPermission('config.update'), async (c
   // Save to D1
   if (c.env?.DB) {
     await c.env.DB.prepare(
-      `CREATE TABLE IF NOT EXISTS app_config (
+      `CREATE TABLE IF NOT EXISTS remote_app_config (
         id TEXT PRIMARY KEY,
         config_json TEXT NOT NULL,
         updated_at TEXT NOT NULL,
@@ -909,7 +909,7 @@ adminRouter.put('/app/config', requireAdminPermission('config.update'), async (c
     const now = new Date().toISOString();
 
     await c.env.DB.prepare(
-      `INSERT INTO app_config (id, config_json, updated_at, updated_by)
+      `INSERT INTO remote_app_config (id, config_json, updated_at, updated_by)
        VALUES ('default', ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          config_json = excluded.config_json,

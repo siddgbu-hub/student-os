@@ -8,11 +8,11 @@ export const appRouter = new Hono<{ Bindings: Env }>();
 appRouter.get('/config', async (c) => {
   let config: RemoteAppConfig = { ...DEFAULT_REMOTE_APP_CONFIG };
 
-  // Attempt D1 override if app_config table exists
+  // Attempt D1 override if remote_app_config table exists
   if (c.env?.DB) {
     try {
       const row = await c.env.DB.prepare(
-        'SELECT config_json FROM app_config WHERE id = ? LIMIT 1'
+        'SELECT config_json FROM remote_app_config WHERE id = ? LIMIT 1'
       )
         .bind('default')
         .first<{ config_json: string }>();
