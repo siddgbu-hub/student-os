@@ -28,16 +28,47 @@ describe('App Version Controller — GET /api/v1/app/version/android', () => {
     expect(body.data.publishedAt).toBeDefined();
   });
 
-  it('2. Endpoint works through root app middleware without auth requirement', async () => {
-    const res = await app.request(
-      '/api/v1/app/version/android',
-      { method: 'GET' },
-      { ALLOWED_ORIGIN: '*' }
-    );
+  it('3. CORS accepts explicit production origins from ALLOWED_ORIGIN allowlist', async () => {
+    const env = { ALLOWED_ORIGIN: 'https://studentos.kryvlance.in, https://admin.studentos.kryvlance.in' };
 
-    expect(res.status).toBe(200);
-    const body = (await res.json()) as any;
-    expect(body.success).toBe(true);
-    expect(body.data.latestVersionCode).toBe(5);
+    // Test main user app origin
+    const resUser = await app.request(
+      '/api/v1/health',
+      { method: 'OPTIONS', headers: { Origin: 'https://studentos.kryvlance.in' } },
+      env
+    );
+    expect(resUser.headers.get('Access-Control-Allow-Origin')).toBe('https://studentos.kryvlance.in');
+
+    // Test admin console origin
+    const resAdmin = await app.request(
+      '/api/v1/health',
+      { method: 'OPTIONS', headers: { Origin: 'https://admin.studentos.kryvlance.in' } },
+      env
+    );
+    expect(resAdmin.headers.get('Access-Control-Allow-Origin')).toBe('https://admin.studentos.kryvlance.in');
+
+    // Test pages.dev origin
+    const resPages = await app.request(
+      '/api/v1/health',
+      { method: 'OPTIONS', headers: { Origin: 'https://student-os-admin.pages.dev' } },
+      env
+    );
+    expect(resPages.headers.get('Access-Control-Allow-Origin')).toBe('https://student-os-admin.pages.dev');
+
+    // Test localhost origin
+    const resLocal = await app.request(
+      '/api/v1/health',
+      { method: 'OPTIONS', headers: { Origin: 'http://localhost:5176' } },
+      env
+    );
+    expect(resLocal.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:5176');
+
+    // Test unauthorized origin is rejected (no Access-Control-Allow-Origin header)
+    const resUnauthorized = await app.request(
+      '/api/v1/health',
+      { method: 'OPTIONS', headers: { Origin: 'https://unauthorized-domain.com' } },
+      env
+    );
+    expect(resUnauthorized.headers.get('Access-Control-Allow-Origin')).toBeNull();
   });
 });

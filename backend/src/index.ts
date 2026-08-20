@@ -29,19 +29,29 @@ export interface Env {
 const app = new Hono<{ Bindings: Env }>();
 
 app.use('*', async (c, next) => {
-  const allowedOrigin = c.env.ALLOWED_ORIGIN;
+  const rawAllowedOrigins = c.env.ALLOWED_ORIGIN || '';
+  const configuredOrigins = rawAllowedOrigins
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
 
   const corsMiddleware = cors({
     origin: (origin) => {
-      if (!origin) return allowedOrigin || '*';
-      if (allowedOrigin && origin === allowedOrigin) return origin;
+      if (!origin) {
+        return configuredOrigins.includes('*') || configuredOrigins.length === 0
+          ? '*'
+          : configuredOrigins[0];
+      }
+      if (configuredOrigins.includes('*') || configuredOrigins.includes(origin)) {
+        return origin;
+      }
       if (/^https:\/\/([a-zA-Z0-9-]+\.)?(student-os-19f|student-os-admin)\.pages\.dev$/.test(origin)) {
         return origin;
       }
       if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
         return origin;
       }
-      return allowedOrigin || origin;
+      return null;
     },
     allowHeaders: ['Content-Type', 'Authorization', 'x-device-id'],
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
