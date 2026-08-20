@@ -92,12 +92,12 @@ export const DeleteAccountModal: React.FC<DeleteAccountModalProps> = ({
       aria-labelledby="delete-account-modal-title"
     >
       <div
-        className="fixed inset-0 bg-black/85 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
         onClick={() => !loading && onClose()}
         aria-hidden="true"
       />
 
-      <div className="relative w-full max-w-lg bg-slate-900 border border-red-700/80 rounded-2xl shadow-2xl overflow-hidden z-10 animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden z-10">
         {/* Header */}
         <div className="p-6 border-b border-slate-800 bg-red-950/40 flex items-start justify-between">
           <div className="flex items-start gap-3.5">

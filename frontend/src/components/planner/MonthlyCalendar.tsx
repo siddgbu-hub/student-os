@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MonthlyPlanSummaryDTO } from '@student-os/shared';
 import { Button } from '@student-os/ui';
 import { API_BASE_URL } from '@/config/api';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface MonthlyCalendarProps {
   selectedDate: string;
@@ -80,43 +81,40 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ selectedDate, 
             gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
             gap: 'var(--spacing-xs)',
             padding: 'var(--spacing-md)',
-            borderRadius: 'var(--radius-lg)',
+            borderRadius: 'var(--radius-md)',
             backgroundColor: 'var(--color-bg-secondary)',
             border: '1px solid var(--color-border)',
           }}
         >
           <div>
-            <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: '700' }}>Planned Hours</span>
-            <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--color-text-primary)' }}>{summary.plannedHours}h</div>
+            <span style={{ fontSize: '0.68rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.04em' }}>Planned Hours</span>
+            <div style={{ fontSize: '1.1rem', fontWeight: '600', color: 'var(--color-text-primary)' }}>{summary.plannedHours}h</div>
           </div>
           <div>
-            <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: '700' }}>Completed Hours</span>
-            <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--color-accent)' }}>{summary.completedHours}h</div>
+            <span style={{ fontSize: '0.68rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.04em' }}>Completed Hours</span>
+            <div style={{ fontSize: '1.1rem', fontWeight: '600', color: 'var(--color-accent)' }}>{summary.completedHours}h</div>
           </div>
           <div>
-            <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: '700' }}>Completion Rate</span>
-            <div style={{ fontSize: '1.1rem', fontWeight: '700', color: summary.completionPercentage >= 75 ? '#166534' : '#d97706' }}>{summary.completionPercentage}%</div>
+            <span style={{ fontSize: '0.68rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.04em' }}>Completion Rate</span>
+            <div style={{ fontSize: '1.1rem', fontWeight: '600', color: summary.completionPercentage >= 75 ? 'var(--color-success)' : '#f59e0b' }}>{summary.completionPercentage}%</div>
           </div>
           <div>
-            <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: '700' }}>Active Study Days</span>
-            <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--color-text-primary)' }}>{summary.studyStreakDays} days</div>
-          </div>
-          <div>
-            <span style={{ fontSize: '0.7rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: '700' }}>Revisions Done</span>
-            <div style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--color-text-primary)' }}>{summary.revisionSessionsCount}</div>
+            <span style={{ fontSize: '0.68rem', color: 'var(--color-text-secondary)', textTransform: 'uppercase', fontWeight: '600', letterSpacing: '0.04em' }}>Active Study Days</span>
+            <div style={{ fontSize: '1.1rem', fontWeight: '600', color: 'var(--color-text-primary)' }}>{summary.studyStreakDays} days</div>
           </div>
         </div>
       )}
 
       {/* Calendar Header Navigation */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: '700', color: 'var(--color-text-primary)' }}>
+        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: '600', color: 'var(--color-text-primary)' }}>
           {monthName} {currentYear}
         </h3>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <Button type="button" variant="secondary" onClick={handlePrevMonth} style={{ fontSize: '0.8rem', padding: '4px 12px', height: '32px' }}>
-            ← Prev
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <Button type="button" variant="secondary" onClick={handlePrevMonth} style={{ fontSize: '0.78rem', padding: '4px 10px', height: '30px', gap: '3px' }}>
+            <ChevronLeft size={13} />
+            <span>Prev</span>
           </Button>
           <Button
             type="button"
@@ -126,12 +124,13 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ selectedDate, 
               setCurrentYear(now.getFullYear());
               setCurrentMonth(now.getMonth() + 1);
             }}
-            style={{ fontSize: '0.8rem', padding: '4px 12px', height: '32px' }}
+            style={{ fontSize: '0.78rem', padding: '4px 10px', height: '30px' }}
           >
             Today
           </Button>
-          <Button type="button" variant="secondary" onClick={handleNextMonth} style={{ fontSize: '0.8rem', padding: '4px 12px', height: '32px' }}>
-            Next →
+          <Button type="button" variant="secondary" onClick={handleNextMonth} style={{ fontSize: '0.78rem', padding: '4px 10px', height: '30px', gap: '3px' }}>
+            <span>Next</span>
+            <ChevronRight size={13} />
           </Button>
         </div>
       </div>
@@ -139,7 +138,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ selectedDate, 
       {/* Weekday Headers */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center' }}>
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-          <div key={d} style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--color-text-secondary)', padding: '4px 0' }}>
+          <div key={d} style={{ fontSize: '0.72rem', fontWeight: '600', color: 'var(--color-text-secondary)', padding: '4px 0' }}>
             {d}
           </div>
         ))}
@@ -168,9 +167,9 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ selectedDate, 
                 if (e.key === 'Enter' || e.key === ' ') onSelectDate(datePad);
               }}
               style={{
-                minHeight: '85px',
+                minHeight: '80px',
                 padding: '6px',
-                borderRadius: 'var(--radius-md)',
+                borderRadius: 'var(--radius-sm)',
                 backgroundColor: isToday
                   ? 'rgba(37, 99, 235, 0.08)'
                   : day?.hasActivity
@@ -192,7 +191,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ selectedDate, 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span
                   style={{
-                    fontSize: '0.85rem',
+                    fontSize: '0.82rem',
                     fontWeight: isToday || isSelected ? '700' : '600',
                     color: isToday ? 'var(--color-accent)' : 'var(--color-text-primary)',
                   }}
@@ -201,7 +200,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ selectedDate, 
                 </span>
 
                 {day?.studyMinutes != null && day.studyMinutes > 0 && (
-                  <span style={{ fontSize: '0.68rem', fontWeight: '700', color: 'var(--color-accent)' }}>
+                  <span style={{ fontSize: '0.68rem', fontWeight: '600', color: 'var(--color-accent)' }}>
                     {Math.round(day.studyMinutes / 60)}h {day.studyMinutes % 60}m
                   </span>
                 )}
@@ -216,7 +215,7 @@ export const MonthlyCalendar: React.FC<MonthlyCalendarProps> = ({ selectedDate, 
                 )}
 
                 {day != null && day.revisionCount > 0 && (
-                  <div style={{ fontSize: '0.65rem', color: '#7c3aed', fontWeight: '600' }}>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--color-revision)', fontWeight: '600' }}>
                     {day.revisionCount} revisions
                   </div>
                 )}

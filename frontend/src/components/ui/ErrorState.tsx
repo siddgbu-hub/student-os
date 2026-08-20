@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button } from '@student-os/ui';
+import { AlertCircle } from 'lucide-react';
 
 export interface ErrorStateProps {
   title?: string;
@@ -21,22 +22,24 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
         alignItems: 'center',
         justifyContent: 'center',
         padding: 'var(--spacing-lg)',
-        borderRadius: 'var(--radius-lg)',
-        border: '1px solid #fca5a5',
-        backgroundColor: '#fef2f2',
+        borderRadius: 'var(--radius-md)',
+        border: '1px solid rgba(239, 68, 68, 0.25)',
+        backgroundColor: 'rgba(239, 68, 68, 0.06)',
         textAlign: 'center',
         minHeight: '180px',
         margin: 'var(--spacing-xs) 0',
       }}
     >
-      <div style={{ color: '#dc2626', marginBottom: '8px', fontSize: '1.5rem' }}>⚠️</div>
-      <h3 style={{ margin: '0 0 6px 0', fontSize: '1rem', fontWeight: '700', color: '#991b1b' }}>
+      <div style={{ color: 'var(--color-error)', marginBottom: '8px' }}>
+        <AlertCircle size={28} />
+      </div>
+      <h3 style={{ margin: '0 0 6px 0', fontSize: '0.95rem', fontWeight: '600', color: 'var(--color-text-primary)' }}>
         {title}
       </h3>
       <p
         style={{
-          color: '#7f1d1d',
-          fontSize: '0.85rem',
+          color: 'var(--color-text-secondary)',
+          fontSize: '0.82rem',
           margin: '0 0 var(--spacing-sm) 0',
           maxWidth: '420px',
           lineHeight: '1.4',
@@ -48,7 +51,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
         <Button
           type="button"
           onClick={onRetry}
-          style={{ backgroundColor: '#dc2626', color: '#ffffff', fontSize: '0.8rem' }}
+          style={{ backgroundColor: 'var(--color-error)', color: '#ffffff', fontSize: '0.78rem', border: 'none' }}
         >
           Try Again
         </Button>

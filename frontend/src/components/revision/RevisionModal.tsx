@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@student-os/ui';
 import { RevisionItemDTO, SubjectDTO, ChapterDTO } from '@student-os/shared';
+import { X } from 'lucide-react';
 
 interface RevisionModalProps {
   isOpen: boolean;
@@ -106,9 +107,9 @@ export const RevisionModal: React.FC<RevisionModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: 'var(--color-text-secondary)' }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center' }}
           >
-            ✕
+            <X size={18} />
           </button>
         </div>
 
@@ -220,9 +221,9 @@ export const RevisionModal: React.FC<RevisionModalProps> = ({
                 fontSize: '0.85rem',
               }}
             >
-              <option value="high">🔥 High</option>
-              <option value="medium">⚡ Medium</option>
-              <option value="low">🌱 Low</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
             </select>
           </div>
 

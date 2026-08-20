@@ -654,12 +654,12 @@ export const AccountPage: React.FC = () => {
                 <div>
                   <h4 style={{ margin: 0, fontSize: '0.875rem', fontWeight: '600', color: 'var(--color-text-primary)' }}>Student OS on Web</h4>
                   <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                    Access from your desktop or laptop browser at student-os-19f.pages.dev
+                    Access from your desktop or laptop browser at studentos.kryvlance.in
                   </p>
                 </div>
               </div>
               <a
-                href="https://student-os-19f.pages.dev"
+                href="https://studentos.kryvlance.in"
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{

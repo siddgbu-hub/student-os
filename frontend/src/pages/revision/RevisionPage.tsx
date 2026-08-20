@@ -5,6 +5,7 @@ import { RevisionService } from '../../services/revisionService.js';
 import { Button } from '@student-os/ui';
 import { RevisionItemDTO } from '@student-os/shared';
 import { RevisionModal } from '../../components/revision/RevisionModal.js';
+import { RotateCcw, AlertCircle, Clock, Play, Pause, CheckCircle2, X, Plus, Calendar } from 'lucide-react';
 
 export const RevisionPage: React.FC = () => {
   const {
@@ -68,15 +69,19 @@ export const RevisionPage: React.FC = () => {
         <div
           role="alert"
           style={{
-            padding: 'var(--spacing-xs) var(--spacing-md)',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fca5a5',
-            color: '#991b1b',
-            fontSize: '0.85rem',
+            padding: '8px 14px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            color: 'var(--color-error)',
+            fontSize: '0.82rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
           }}
         >
-          <strong>⚠️ {error}</strong>
+          <AlertCircle size={16} />
+          <span>{error}</span>
         </div>
       )}
 
@@ -165,16 +170,20 @@ export const RevisionPage: React.FC = () => {
             <span
               style={{
                 padding: '2px 8px',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '0.75rem',
-                fontWeight: '700',
-                letterSpacing: '0.05em',
+                borderRadius: 'var(--radius-xs)',
+                fontSize: '0.72rem',
+                fontWeight: '600',
+                letterSpacing: '0.04em',
                 textTransform: 'uppercase',
-                backgroundColor: isPaused ? '#fef3c7' : '#dbeafe',
-                color: isPaused ? '#92400e' : '#1e40af',
+                backgroundColor: isPaused ? 'rgba(245, 158, 11, 0.12)' : 'rgba(139, 92, 246, 0.12)',
+                color: isPaused ? '#f59e0b' : 'var(--color-revision)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
               }}
             >
-              {isPaused ? '⏸ Paused' : '⏱ Active Revision'}
+              {isPaused ? <Pause size={11} /> : <Clock size={11} />}
+              <span>{isPaused ? 'Paused' : 'Active Revision'}</span>
             </span>
           )}
         </div>
@@ -223,14 +232,16 @@ export const RevisionPage: React.FC = () => {
               />
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--spacing-sm)', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap' }}>
               {isPaused ? (
-                <Button type="button" variant="primary" onClick={resumeSession} style={{ height: '36px' }}>
-                  ▶ Resume Session
+                <Button type="button" variant="primary" onClick={resumeSession} style={{ height: '34px', fontSize: '0.82rem', gap: '5px' }}>
+                  <Play size={14} />
+                  <span>Resume Session</span>
                 </Button>
               ) : (
-                <Button type="button" variant="secondary" onClick={pauseSession} style={{ height: '36px' }}>
-                  ⏸ Pause Session
+                <Button type="button" variant="secondary" onClick={pauseSession} style={{ height: '34px', fontSize: '0.82rem', gap: '5px' }}>
+                  <Pause size={14} />
+                  <span>Pause Session</span>
                 </Button>
               )}
 
@@ -238,13 +249,15 @@ export const RevisionPage: React.FC = () => {
                 type="button"
                 variant="primary"
                 onClick={() => endSession('good', completionNotes)}
-                style={{ backgroundColor: '#166534', borderColor: '#166534', color: '#ffffff', height: '36px' }}
+                style={{ backgroundColor: 'var(--color-success)', borderColor: 'var(--color-success)', color: '#ffffff', height: '34px', fontSize: '0.82rem', gap: '5px' }}
               >
-                ✓ Complete & Save
+                <CheckCircle2 size={14} />
+                <span>Complete & Save</span>
               </Button>
 
-              <Button type="button" variant="secondary" onClick={cancelSession} style={{ height: '36px', color: '#dc2626' }}>
-                Cancel
+              <Button type="button" variant="secondary" onClick={cancelSession} style={{ height: '34px', fontSize: '0.82rem', color: 'var(--color-error)', borderColor: 'rgba(239, 68, 68, 0.3)', gap: '5px' }}>
+                <X size={14} />
+                <span>Cancel</span>
               </Button>
             </div>
           </div>
@@ -465,9 +478,10 @@ export const RevisionPage: React.FC = () => {
                       type="button"
                       variant="primary"
                       onClick={() => startSession(item.id)}
-                      style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem', height: '30px', flex: 1 }}
+                      style={{ fontSize: '0.78rem', padding: '0.25rem 0.5rem', height: '30px', flex: 1, gap: '4px' }}
                     >
-                      ▶ Start Session
+                      <Play size={13} />
+                      <span>Start Session</span>
                     </Button>
                   )}
 

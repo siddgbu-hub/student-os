@@ -26,15 +26,16 @@ import { Badge } from './ui/Badge.js';
 import { Button } from './ui/Button.js';
 import { LoadingState } from './ui/LoadingState.js';
 import { ErrorState } from './ui/ErrorState.js';
-import { GrantSubscriptionModal } from './GrantSubscriptionModal.js';
+import { RecordPaymentModal } from './RecordPaymentModal.js';
 import { ExtendSubscriptionModal } from './ExtendSubscriptionModal.js';
 import { ChangePlanModal } from './ChangePlanModal.js';
 import { RevokeSubscriptionModal } from './RevokeSubscriptionModal.js';
+import { CancelRevokeModal } from './CancelRevokeModal.js';
 import { DeactivateAccountModal } from './DeactivateAccountModal.js';
 import { ReactivateAccountModal } from './ReactivateAccountModal.js';
 import { RevokeAllSessionsModal } from './RevokeAllSessionsModal.js';
 import { DeleteAccountModal } from './DeleteAccountModal.js';
-import { UserX, UserCheck, LogOut, Trash2, AlertTriangle } from 'lucide-react';
+import { UserX, UserCheck, LogOut, Trash2, AlertTriangle, RotateCcw } from 'lucide-react';
 
 export interface UserDetailDrawerProps {
   accountId: string | null;
@@ -54,6 +55,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
   const [extendModalOpen, setExtendModalOpen] = useState<boolean>(false);
   const [changePlanModalOpen, setChangePlanModalOpen] = useState<boolean>(false);
   const [revokeModalOpen, setRevokeModalOpen] = useState<boolean>(false);
+  const [cancelRevokeModalOpen, setCancelRevokeModalOpen] = useState<boolean>(false);
   const [deactivateModalOpen, setDeactivateModalOpen] = useState<boolean>(false);
   const [reactivateModalOpen, setReactivateModalOpen] = useState<boolean>(false);
   const [revokeSessionsModalOpen, setRevokeSessionsModalOpen] = useState<boolean>(false);
@@ -96,20 +98,31 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
       setError(null);
       setSuccessMessage(null);
       setRefetchError(null);
+      setGrantModalOpen(false);
+      setExtendModalOpen(false);
+      setChangePlanModalOpen(false);
+      setRevokeModalOpen(false);
+      setCancelRevokeModalOpen(false);
+      setDeactivateModalOpen(false);
+      setReactivateModalOpen(false);
+      setRevokeSessionsModalOpen(false);
+      setDeleteModalOpen(false);
     }
   }, [accountId, fetchDetail]);
 
   // Keyboard accessibility: ESC to close drawer when no modals are open
+  const isAnyModalOpen =
+    grantModalOpen ||
+    extendModalOpen ||
+    changePlanModalOpen ||
+    revokeModalOpen ||
+    cancelRevokeModalOpen ||
+    deactivateModalOpen ||
+    reactivateModalOpen ||
+    revokeSessionsModalOpen ||
+    deleteModalOpen;
+
   useEffect(() => {
-    const isAnyModalOpen =
-      grantModalOpen ||
-      extendModalOpen ||
-      changePlanModalOpen ||
-      revokeModalOpen ||
-      deactivateModalOpen ||
-      reactivateModalOpen ||
-      revokeSessionsModalOpen ||
-      deleteModalOpen;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && accountId && !isAnyModalOpen) {
         onClose();
@@ -120,14 +133,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
   }, [
     accountId,
     onClose,
-    grantModalOpen,
-    extendModalOpen,
-    changePlanModalOpen,
-    revokeModalOpen,
-    deactivateModalOpen,
-    reactivateModalOpen,
-    revokeSessionsModalOpen,
-    deleteModalOpen,
+    isAnyModalOpen,
   ]);
 
   if (!accountId) return null;
@@ -190,12 +196,14 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
       aria-modal="true"
       aria-labelledby="drawer-title"
     >
-      {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      {/* Backdrop — hidden when a mutation modal is layered on top (avoids double-dim) */}
+      {!isAnyModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
+          onClick={onClose}
+          aria-hidden="true"
+        />
+      )}
 
       {/* Drawer Container */}
       <div className="relative w-full max-w-2xl bg-slate-900 border-l border-slate-800 shadow-2xl flex flex-col h-full z-50 overflow-hidden">
@@ -248,6 +256,7 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
               </div>
               <button
                 onClick={() => setSuccessMessage(null)}
+                aria-label="Dismiss success message"
                 className="text-emerald-400 hover:text-emerald-200"
               >
                 <X className="w-3.5 h-3.5" />
@@ -340,41 +349,58 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   <Button
+                    type="button"
                     variant="primary"
                     size="sm"
                     onClick={() => setGrantModalOpen(true)}
-                    className="w-full justify-center text-xs"
+                    className="w-full justify-center text-xs cursor-pointer"
                   >
                     <Sparkles className="w-3.5 h-3.5 mr-1" />
                     Grant Pro
                   </Button>
                   <Button
+                    type="button"
                     variant="secondary"
                     size="sm"
                     onClick={() => setExtendModalOpen(true)}
-                    className="w-full justify-center text-xs"
+                    className="w-full justify-center text-xs cursor-pointer"
                   >
                     <CalendarPlus className="w-3.5 h-3.5 mr-1" />
                     Extend
                   </Button>
                   <Button
+                    type="button"
                     variant="secondary"
                     size="sm"
                     onClick={() => setChangePlanModalOpen(true)}
-                    className="w-full justify-center text-xs"
+                    className="w-full justify-center text-xs cursor-pointer"
                   >
                     <RefreshCw className="w-3.5 h-3.5 mr-1" />
                     Change Plan
                   </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => setRevokeModalOpen(true)}
-                    className="w-full justify-center text-xs"
-                  >
-                    <ShieldAlert className="w-3.5 h-3.5 mr-1" />
-                    Revoke
-                  </Button>
+                  {detail.entitlement?.status === 'revoked' ? (
+                    <Button
+                      type="button"
+                      variant="primary"
+                      size="sm"
+                      onClick={() => setCancelRevokeModalOpen(true)}
+                      className="w-full justify-center text-xs bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-md shadow-emerald-950/80"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 mr-1" />
+                      Cancel Revoke
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="danger"
+                      size="sm"
+                      onClick={() => setRevokeModalOpen(true)}
+                      className="w-full justify-center text-xs cursor-pointer"
+                    >
+                      <ShieldAlert className="w-3.5 h-3.5 mr-1" />
+                      Revoke
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -392,28 +418,41 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
                   <p className="text-xs text-slate-400 italic py-3 text-center">No subscription history recorded.</p>
                 ) : (
                   <div className="space-y-2.5">
-                    {detail.subscriptions.map((sub) => (
-                      <div
-                        key={sub.subscriptionId}
-                        className="p-3 rounded-lg bg-slate-900/90 border border-slate-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2 font-medium text-slate-200">
-                            <span>Plan: {sub.planId.toUpperCase()}</span>
-                            <span className="text-slate-400">•</span>
-                            <span className="capitalize text-slate-300">{sub.status}</span>
-                            <span className="text-slate-400">•</span>
-                            <span className="text-[11px] text-slate-400">Source: {sub.source}</span>
+                    {detail.subscriptions.map((sub) => {
+                      const isQueued = sub.status === 'active' && sub.startDate && new Date(sub.startDate).getTime() > Date.now();
+                      return (
+                        <div
+                          key={sub.subscriptionId}
+                          className="p-3 rounded-lg bg-slate-900/90 border border-slate-800 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2 font-medium text-slate-200">
+                              <span>Plan: {sub.planName || (
+                                sub.planId === 'monthly' ? 'Monthly Pro' :
+                                sub.planId === 'yearly' ? 'Yearly Pro' :
+                                sub.planId === 'free_trial' ? 'Free Trial' :
+                                sub.planId.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+                              )}</span>
+                              <span className="text-slate-400">•</span>
+                              <span className="capitalize text-slate-300">{sub.status}</span>
+                              {isQueued && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                  Queued Stack
+                                </span>
+                              )}
+                              <span className="text-slate-400">•</span>
+                              <span className="text-[11px] text-slate-400">Source: {sub.source}</span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-1">
+                              {formatDate(sub.startDate)} → {formatDate(sub.expiryDate)}
+                            </p>
                           </div>
-                          <p className="text-[11px] text-slate-400 mt-1">
-                            {formatDate(sub.startDate)} → {formatDate(sub.expiryDate)}
-                          </p>
+                          <div className="text-[11px] text-slate-300 font-mono sm:text-right">
+                            Granted: {sub.grantedBy ? `${sub.grantedBy.substring(0, 8)}...` : 'System'}
+                          </div>
                         </div>
-                        <div className="text-[11px] text-slate-300 font-mono sm:text-right">
-                          Granted: {sub.grantedBy ? `${sub.grantedBy.substring(0, 8)}...` : 'System'}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -599,10 +638,11 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
 
                   <div className="flex flex-wrap items-center gap-2.5 pt-1">
                     <Button
+                      type="button"
                       variant="secondary"
                       size="sm"
                       onClick={() => setRevokeSessionsModalOpen(true)}
-                      className="text-xs border-amber-800/50 hover:bg-amber-950/30 text-amber-300"
+                      className="text-xs border-amber-800/50 hover:bg-amber-950/30 text-amber-300 cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5 mr-1.5 text-amber-400" />
                       Revoke All Sessions
@@ -610,20 +650,22 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
 
                     {detail.account?.status === 'suspended' ? (
                       <Button
+                        type="button"
                         variant="primary"
                         size="sm"
                         onClick={() => setReactivateModalOpen(true)}
-                        className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white"
+                        className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer"
                       >
                         <UserCheck className="w-3.5 h-3.5 mr-1.5" />
                         Reactivate Account
                       </Button>
                     ) : (
                       <Button
+                        type="button"
                         variant="danger"
                         size="sm"
                         onClick={() => setDeactivateModalOpen(true)}
-                        className="text-xs bg-red-600 hover:bg-red-500 text-white"
+                        className="text-xs bg-red-600 hover:bg-red-500 text-white cursor-pointer"
                       >
                         <UserX className="w-3.5 h-3.5 mr-1.5" />
                         Deactivate Account
@@ -637,10 +679,11 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
                       </div>
                     ) : (
                       <Button
+                        type="button"
                         variant="danger"
                         size="sm"
                         onClick={() => setDeleteModalOpen(true)}
-                        className="text-xs bg-red-800 hover:bg-red-700 text-white border border-red-600/60 shadow-lg shadow-red-950/80 font-semibold"
+                        className="text-xs bg-red-800 hover:bg-red-700 text-white border border-red-600/60 shadow-lg shadow-red-950/80 font-semibold cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5 mr-1.5" />
                         Delete Account Permanently
@@ -654,13 +697,14 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
         </div>
       </div>
 
-      {/* PHASE 6 MUTATION MODALS */}
-      <GrantSubscriptionModal
+      {/* RECORD PAYMENT / GRANT PRO MODAL */}
+      <RecordPaymentModal
         isOpen={grantModalOpen}
-        accountId={accountId}
-        studentName={studentName}
-        studentEmail={studentEmail}
-        currentStatus={currentStatus}
+        initialAccountId={accountId || undefined}
+        initialStudentName={studentName}
+        initialStudentEmail={studentEmail}
+        currentPlanName={currentPlanName}
+        currentExpiresAt={currentExpiresAt}
         onClose={() => setGrantModalOpen(false)}
         onSuccess={handleMutationSuccess}
       />
@@ -696,6 +740,27 @@ export const UserDetailDrawer: React.FC<UserDetailDrawerProps> = ({ accountId, o
         currentStatus={currentStatus}
         currentExpiresAt={currentExpiresAt}
         onClose={() => setRevokeModalOpen(false)}
+        onSuccess={handleMutationSuccess}
+      />
+
+      <CancelRevokeModal
+        isOpen={cancelRevokeModalOpen}
+        accountId={accountId}
+        studentName={studentName}
+        studentEmail={studentEmail}
+        originalPlanName={
+          detail?.subscriptions?.filter((s) => s.status === 'revoked')
+            .sort((a, b) => new Date(b.expiryDate || 0).getTime() - new Date(a.expiryDate || 0).getTime())[0]?.planName ||
+          detail?.entitlement?.planName ||
+          currentPlanName
+        }
+        originalExpiryDate={
+          detail?.subscriptions?.filter((s) => s.status === 'revoked')
+            .sort((a, b) => new Date(b.expiryDate || 0).getTime() - new Date(a.expiryDate || 0).getTime())[0]?.expiryDate ||
+          detail?.entitlement?.expiresAt ||
+          null
+        }
+        onClose={() => setCancelRevokeModalOpen(false)}
         onSuccess={handleMutationSuccess}
       />
 

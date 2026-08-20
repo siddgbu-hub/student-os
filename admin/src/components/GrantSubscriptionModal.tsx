@@ -9,6 +9,8 @@ export interface GrantSubscriptionModalProps {
   studentName: string;
   studentEmail: string;
   currentStatus: string;
+  currentPlanName?: string | null;
+  currentExpiresAt?: string | null;
   onClose: () => void;
   onSuccess: (message: string) => void;
 }
@@ -19,6 +21,8 @@ export const GrantSubscriptionModal: React.FC<GrantSubscriptionModalProps> = ({
   studentName,
   studentEmail,
   currentStatus,
+  currentPlanName,
+  currentExpiresAt,
   onClose,
   onSuccess,
 }) => {
@@ -27,6 +31,30 @@ export const GrantSubscriptionModal: React.FC<GrantSubscriptionModalProps> = ({
   const [reason, setReason] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isProActive = Boolean(
+    currentStatus === 'active' &&
+    currentExpiresAt &&
+    new Date(currentExpiresAt).getTime() > Date.now() &&
+    currentPlanName &&
+    (currentPlanName.toLowerCase().includes('monthly') ||
+      currentPlanName.toLowerCase().includes('yearly') ||
+      currentPlanName.toLowerCase().includes('pro'))
+  );
+
+  const formatDate = (isoString?: string | null) => {
+    if (!isoString) return 'None';
+    try {
+      const date = new Date(isoString);
+      return date.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return isoString;
+    }
+  };
 
   // Update default duration when plan changes
   const handlePlanChange = (newPlan: 'monthly' | 'yearly') => {
@@ -157,6 +185,40 @@ export const GrantSubscriptionModal: React.FC<GrantSubscriptionModalProps> = ({
               <span className="text-slate-500 block text-[10px] uppercase font-semibold">Current</span>
               <span className="text-amber-400 font-medium capitalize">{currentStatus}</span>
             </div>
+          </div>
+
+          {/* Stacking / Activation Schedule Preview */}
+          <div
+            className={`p-3 rounded-lg border text-xs ${
+              isProActive
+                ? 'bg-blue-950/30 border-blue-800/60 text-blue-300'
+                : 'bg-slate-950/60 border-slate-800 text-slate-300'
+            }`}
+          >
+            {isProActive ? (
+              <div className="space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Current Pro valid until:</span>
+                  <span className="font-semibold text-white">{formatDate(currentExpiresAt)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-blue-400 font-medium">
+                    New {planId === 'yearly' ? 'Yearly' : 'Monthly'} Pro starts:
+                  </span>
+                  <span className="font-semibold text-blue-200">{formatDate(currentExpiresAt)} (Queued)</span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1">
+                  Sequential stacking active: New plan starts automatically after current Pro ends with zero overlap.
+                </p>
+              </div>
+            ) : (
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400">
+                  New {planId === 'yearly' ? 'Yearly' : 'Monthly'} Pro starts:
+                </span>
+                <span className="font-semibold text-emerald-400">Today ({formatDate(new Date().toISOString())})</span>
+              </div>
+            )}
           </div>
 
           {/* Plan Selection */}

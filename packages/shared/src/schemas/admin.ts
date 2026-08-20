@@ -125,6 +125,11 @@ export const RevokeSubscriptionRequestSchema = z.object({
   reason: z.string().min(3, 'Reason must be at least 3 characters').max(500, 'Reason cannot exceed 500 characters'),
 });
 
+export const CancelRevokeSubscriptionRequestSchema = z.object({
+  accountId: z.string().uuid('Valid accountId UUID is required'),
+  reason: z.string().min(3, 'Reason must be at least 3 characters').max(500, 'Reason cannot exceed 500 characters'),
+});
+
 export const DeactivateAccountRequestSchema = z.object({
   reason: z.string().max(500, 'Reason cannot exceed 500 characters').optional(),
 });

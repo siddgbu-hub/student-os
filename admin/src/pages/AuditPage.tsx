@@ -224,8 +224,9 @@ export const AuditPage: React.FC = () => {
                 type="text"
                 value={accountIdInput}
                 onChange={(e) => setAccountIdInput(e.target.value)}
-                placeholder="UUID account ID..."
-                className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 w-48 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
+                placeholder="Paste full UUID account ID..."
+                title="Enter the exact UUID account ID to filter by"
+                className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono"
               />
             </div>
             <Button type="submit" variant="secondary" size="sm">
@@ -406,7 +407,7 @@ export const AuditPage: React.FC = () => {
 
       {/* METADATA INSPECTION DETAILS MODAL */}
       {selectedLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-150">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div
             className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-5"
             role="dialog"

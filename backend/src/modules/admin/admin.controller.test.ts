@@ -216,6 +216,20 @@ class FullMockD1Database {
           }
           return null;
         }
+        if (query.includes('FROM subscriptions') && query.includes("status = 'revoked'")) {
+          const accountId = params[0] as string;
+          const revokedSubs = Array.from(db.subscriptions.values())
+            .filter((s) => s.account_id === accountId && s.status === 'revoked')
+            .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+          return (revokedSubs[0] as unknown as T) || null;
+        }
+        if (query.includes('FROM subscriptions') && query.includes("status = 'active'") && query.includes("plan_id IN ('monthly', 'yearly')")) {
+          const accountId = params[0] as string;
+          const activeProSubs = Array.from(db.subscriptions.values())
+            .filter((s) => s.account_id === accountId && s.status === 'active' && (s.plan_id === 'monthly' || s.plan_id === 'yearly') && s.expiry_date)
+            .sort((a, b) => new Date(b.expiry_date!).getTime() - new Date(a.expiry_date!).getTime());
+          return (activeProSubs[0] as unknown as T) || null;
+        }
         if (query.includes('payment_id = ?')) {
           const pId = params[0] as string;
           const p = db.payments.get(pId);
@@ -329,7 +343,10 @@ class FullMockD1Database {
         }
         if (query.includes('FROM subscriptions s') || query.includes('FROM subscriptions')) {
           const accountId = params[0] as string;
-          const list = Array.from(db.subscriptions.values()).filter((s) => s.account_id === accountId);
+          let list = Array.from(db.subscriptions.values()).filter((s) => s.account_id === accountId);
+          if (query.includes("status = 'revoked'")) {
+            list = list.filter((s) => s.status === 'revoked').sort((a, b) => new Date(b.expiry_date || 0).getTime() - new Date(a.expiry_date || 0).getTime());
+          }
           return { results: list as unknown as T[] };
         }
         if (query.includes('FROM payments p') || query.includes('FROM payments')) {
@@ -402,6 +419,13 @@ class FullMockD1Database {
             sub.updated_at = updatedAt;
           }
         }
+      } else if (query.includes('UPDATE subscriptions SET status = ?, updated_at = ? WHERE subscription_id = ?')) {
+        const [newStatus, updatedAt, subId] = params as [string, string, string];
+        const sub = this.subscriptions.get(subId);
+        if (sub) {
+          sub.status = newStatus;
+          sub.updated_at = updatedAt;
+        }
       } else if (query.includes('INSERT INTO subscriptions')) {
         const [
           subscription_id,
@@ -430,24 +454,53 @@ class FullMockD1Database {
           updated_at,
         });
       } else if (query.includes('INSERT INTO entitlements')) {
-        const [
-          entitlement_id,
-          account_id,
-          current_plan_id,
-          features,
-          expires_at,
-          last_verified_at,
-          created_at,
-          updated_at,
-        ] = params as [string, string, string, string, string | null, string, string, string];
+        let entitlement_id: string,
+          account_id: string,
+          current_plan_id: string,
+          status: string,
+          is_paid: number,
+          features: string,
+          expires_at: string | null,
+          last_verified_at: string,
+          created_at: string,
+          updated_at: string;
 
-        const isRevoked = query.includes("'revoked'");
+        if (params.length === 10) {
+          [
+            entitlement_id,
+            account_id,
+            current_plan_id,
+            status,
+            is_paid,
+            features,
+            expires_at,
+            last_verified_at,
+            created_at,
+            updated_at,
+          ] = params as [string, string, string, string, number, string, string | null, string, string, string];
+        } else {
+          [
+            entitlement_id,
+            account_id,
+            current_plan_id,
+            features,
+            expires_at,
+            last_verified_at,
+            created_at,
+            updated_at,
+          ] = params as [string, string, string, string, string | null, string, string, string];
+
+          const isRevoked = query.includes("'revoked'");
+          status = isRevoked ? 'revoked' : 'active';
+          is_paid = isRevoked ? 0 : 1;
+        }
+
         this.entitlements.set(account_id, {
           entitlement_id,
           account_id,
           current_plan_id,
-          status: isRevoked ? 'revoked' : 'active',
-          is_paid: isRevoked ? 0 : 1,
+          status,
+          is_paid,
           features,
           expires_at,
           last_verified_at,
@@ -524,6 +577,7 @@ class FullMockD1Database {
         if (query.includes('ENTITLEMENT_EXTENDED')) event_type = 'ENTITLEMENT_EXTENDED';
         if (query.includes('ENTITLEMENT_PLAN_CHANGED')) event_type = 'ENTITLEMENT_PLAN_CHANGED';
         if (query.includes('ENTITLEMENT_REVOKED')) event_type = 'ENTITLEMENT_REVOKED';
+        if (query.includes('REVOCATION_CANCELLED')) event_type = 'REVOCATION_CANCELLED';
         if (query.includes('ENTITLEMENT_ACTIVATED_PAYMENT')) event_type = 'ENTITLEMENT_ACTIVATED_PAYMENT';
 
         this.auditLogs.set(id, {
@@ -679,7 +733,7 @@ describe('PHASE 3 — Admin REST APIs Controller Tests', () => {
     mockDb.plans.set('monthly', {
       plan_id: 'monthly',
       name: 'Student OS Pro Monthly',
-      price_cents: 29900,
+      price_cents: 3000,
       duration_days: 30,
       features: JSON.stringify(ALL_STUDENT_OS_FEATURES),
       is_active: 1,
@@ -687,7 +741,7 @@ describe('PHASE 3 — Admin REST APIs Controller Tests', () => {
     mockDb.plans.set('yearly', {
       plan_id: 'yearly',
       name: 'Student OS Pro Yearly',
-      price_cents: 249900,
+      price_cents: 29900,
       duration_days: 365,
       features: JSON.stringify(ALL_STUDENT_OS_FEATURES),
       is_active: 1,
@@ -1091,6 +1145,51 @@ describe('PHASE 3 — Admin REST APIs Controller Tests', () => {
       expect(json.data.entitlement.status).toBe('revoked');
       expect(json.data.entitlement.isPaid).toBe(false);
     });
+
+    it('13b. POST /subscriptions/cancel-revoke restores access without creating new subscription row', async () => {
+      const app = createTestApp();
+      const headers = await createAuthHeaders(OWNER_ADMIN_ID);
+
+      // Step 1: Revoke
+      await app.request(
+        '/api/v1/admin/subscriptions/revoke',
+        {
+          method: 'POST',
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            accountId: STUDENT_ID,
+            reason: 'Temporary suspension',
+          }),
+        },
+        testEnv()
+      );
+
+      // Step 2: Cancel Revoke
+      const res = await app.request(
+        '/api/v1/admin/subscriptions/cancel-revoke',
+        {
+          method: 'POST',
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            accountId: STUDENT_ID,
+            reason: 'Review complete, restoring original subscription',
+          }),
+        },
+        testEnv()
+      );
+
+      expect(res.status).toBe(200);
+      const json = (await res.json()) as any;
+      expect(json.success).toBe(true);
+      expect(json.data.outcome).toBe('active');
+      expect(json.data.entitlement.status).toBe('active');
+    });
   });
 
   describe('6. Payments Endpoints (GET & POST /api/v1/admin/payments)', () => {
@@ -1139,8 +1238,8 @@ describe('PHASE 3 — Admin REST APIs Controller Tests', () => {
       expect(res.status).toBe(200);
       const json = (await res.json()) as any;
       expect(json.success).toBe(true);
-      expect(json.data.payment.amountPaise).toBe(29900);
-      expect(json.data.payment.originalAmountPaise).toBe(29900);
+      expect(json.data.payment.amountPaise).toBe(3000);
+      expect(json.data.payment.originalAmountPaise).toBe(3000);
       expect(json.data.payment.discountPercent).toBe(0);
       expect(json.data.payment.transactionReference).toBe(ref);
       expect(json.data.subscription.planId).toBe('monthly');

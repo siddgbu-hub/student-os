@@ -1,6 +1,7 @@
 import React from 'react';
 import { GoalProgressDTO } from '@student-os/shared';
 import { Button } from '@student-os/ui';
+import { Target } from 'lucide-react';
 
 interface GoalSummaryCardProps {
   progress: GoalProgressDTO | null;
@@ -79,7 +80,7 @@ export const GoalSummaryCard: React.FC<GoalSummaryCardProps> = ({ progress, onEd
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1rem' }}>🎯</span>
+            <Target size={16} color="var(--color-accent)" />
             <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: '700', color: 'var(--color-text-primary)' }}>
               {goal.examName}
             </h3>

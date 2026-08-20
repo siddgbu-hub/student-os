@@ -350,7 +350,7 @@ describe('PHASE 7 — Payments Ledger & Manual Payment Tests', () => {
                 {
                   paymentId: 'new-pmt-1',
                   accountId: 'acc-new-99',
-                  amountPaise: 29900,
+                  amountPaise: 3000,
                   currency: 'INR',
                   paymentMethod: 'upi',
                   transactionReference: 'UPI-NEW-778899',
@@ -404,7 +404,7 @@ describe('PHASE 7 — Payments Ledger & Manual Payment Tests', () => {
 
     // Verify success banner appears and ledger refetches with new item
     await waitFor(() => {
-      expect(screen.getByText(/Payment of ₹299\.00 \(UPI\) recorded successfully/i)).toBeDefined();
+      expect(screen.getByText(/Payment of ₹30\.00 \(UPI\) recorded successfully/i)).toBeDefined();
       expect(screen.getByText('UPI-NEW-778899')).toBeDefined();
     });
   });

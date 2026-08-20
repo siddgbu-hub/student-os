@@ -7,8 +7,9 @@ import {
   type EntitlementStatus,
   ALL_STUDENT_OS_FEATURES,
 } from '@student-os/shared';
-import { EntitlementRepository } from '../../db/entitlement.repository.js';
+import { EntitlementRepository, type TrialClaimRecord } from '../../db/entitlement.repository.js';
 import { PaymentProvider, GenericPaymentProvider } from '../../services/payment/payment-provider.interface.js';
+import { hashString } from '../../services/crypto.service.js';
 
 export interface ManualGrantParams {
   accountId?: string;
@@ -90,6 +91,7 @@ export class EntitlementService {
     const now = new Date();
 
     if (existing) {
+      let outcome = existing;
       // Check if entitlement has an expiry date and it has passed
       if (existing.expiresAt && new Date(existing.expiresAt) < now) {
         // Expired -> mark as expired without creating an unlimited free plan
@@ -103,16 +105,69 @@ export class EntitlementService {
         };
         await this.repo.upsertEntitlement(updated);
         await this.repo.updatePreviousActiveSubscriptions(accountId, 'expired');
-        return updated;
+        outcome = updated;
       }
-      return existing;
+
+      // Ensure persistent trial claim exists for existing account (defense-in-depth)
+      const account = await this.repo.getAccountById(accountId);
+      if (account?.email) {
+        const emailHash = await hashString(account.email.toLowerCase().trim());
+        const claim = await this.repo.getTrialClaimByEmailHash(emailHash);
+        if (!claim) {
+          const accountCreatedAt = new Date(account.created_at || now);
+          const trialExpiry = outcome.currentPlanId === 'free_trial' && outcome.expiresAt
+            ? outcome.expiresAt
+            : new Date(accountCreatedAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+          await this.repo.createTrialClaim({
+            claimId: crypto.randomUUID(),
+            emailHash,
+            firstClaimedAt: accountCreatedAt.toISOString(),
+            trialExpiresAt: trialExpiry,
+          });
+        }
+      }
+
+      return outcome;
     }
 
-    // No existing entitlement record -> Auto-initialize 7-Day Free Trial based on account creation date
+    // No existing entitlement record -> Check persistent trial claims or auto-initialize 7-Day Free Trial
     const account = await this.repo.getAccountById(accountId);
-    const accountCreatedAt = account ? new Date(account.created_at) : now;
-    const trialExpiry = new Date(accountCreatedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const isTrialActive = now < trialExpiry;
+    const nowIso = now.toISOString();
+
+    let trialClaim: TrialClaimRecord | null = null;
+    let emailHash: string | null = null;
+
+    if (account?.email) {
+      emailHash = await hashString(account.email.toLowerCase().trim());
+      trialClaim = await this.repo.getTrialClaimByEmailHash(emailHash);
+    }
+
+    let trialStartDate: string;
+    let trialExpiryDate: string;
+    let isTrialActive: boolean;
+
+    if (trialClaim) {
+      // Historical trial claim exists (survived account deletion or previous claim)
+      trialStartDate = trialClaim.first_claimed_at;
+      trialExpiryDate = trialClaim.trial_expires_at;
+      isTrialActive = now.getTime() < new Date(trialClaim.trial_expires_at).getTime();
+    } else {
+      // First time this email is claiming a trial
+      const accountCreatedAt = account ? new Date(account.created_at) : now;
+      const trialExpiry = new Date(accountCreatedAt.getTime() + 7 * 24 * 60 * 60 * 1000);
+      trialStartDate = accountCreatedAt.toISOString();
+      trialExpiryDate = trialExpiry.toISOString();
+      isTrialActive = now.getTime() < trialExpiry.getTime();
+
+      if (emailHash) {
+        await this.repo.createTrialClaim({
+          claimId: crypto.randomUUID(),
+          emailHash,
+          firstClaimedAt: trialStartDate,
+          trialExpiresAt: trialExpiryDate,
+        });
+      }
+    }
 
     const trialPlan = (await this.repo.getPlanById('free_trial')) || {
       planId: 'free_trial',
@@ -123,20 +178,20 @@ export class EntitlementService {
     const status: EntitlementStatus = isTrialActive ? 'active' : 'expired';
     const features = isTrialActive ? (trialPlan.features || ALL_STUDENT_OS_FEATURES) : [];
 
-    // Create initial trial subscription record
-    await this.repo.createSubscription({
+    // Create initial trial subscription record (idempotent / race-condition safe)
+    await this.repo.createInitialTrialSubscription({
       subscriptionId: crypto.randomUUID(),
       accountId,
       planId: 'free_trial',
-      status: isTrialActive ? 'active' : 'expired',
+      status,
       source: 'trial',
       grantedBy: 'system:trial',
-      startDate: accountCreatedAt.toISOString(),
-      expiryDate: trialExpiry.toISOString(),
+      startDate: trialStartDate,
+      expiryDate: trialExpiryDate,
       cancelledAt: null,
       paymentReference: null,
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
+      createdAt: nowIso,
+      updatedAt: nowIso,
     });
 
     const newEntitlement: EntitlementDto = {
@@ -147,10 +202,10 @@ export class EntitlementService {
       status,
       isPaid: false,
       features,
-      expiresAt: trialExpiry.toISOString(),
-      lastVerifiedAt: now.toISOString(),
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
+      expiresAt: trialExpiryDate,
+      lastVerifiedAt: nowIso,
+      createdAt: nowIso,
+      updatedAt: nowIso,
     };
 
     await this.repo.upsertEntitlement(newEntitlement);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@student-os/ui';
+import { X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext.js';
 
 declare global {
@@ -163,11 +164,12 @@ export const LoginPage: React.FC = () => {
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              fontWeight: 'bold',
-              color: '#991b1b',
+              color: 'var(--color-error)',
+              display: 'flex',
+              alignItems: 'center',
             }}
           >
-            ✕
+            <X size={16} />
           </button>
         </div>
       )}

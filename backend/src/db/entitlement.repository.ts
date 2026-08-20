@@ -63,6 +63,13 @@ interface AuditLogRow {
   created_at: string;
 }
 
+export interface TrialClaimRecord {
+  claim_id: string;
+  email_hash: string;
+  first_claimed_at: string;
+  trial_expires_at: string;
+}
+
 interface AccountRow {
   account_id: string;
   email: string;
@@ -186,6 +193,48 @@ export class EntitlementRepository {
       entitlement.lastVerifiedAt,
       entitlement.createdAt,
       entitlement.updatedAt
+    );
+    await stmt.run();
+  }
+
+  async createInitialTrialSubscription(sub: {
+    subscriptionId: string;
+    accountId: string;
+    planId: string;
+    status: SubscriptionStatus;
+    source: string;
+    grantedBy: string | null;
+    startDate: string;
+    expiryDate: string | null;
+    cancelledAt?: string | null;
+    paymentReference: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }): Promise<void> {
+    const stmt = this.db.prepare(`
+      INSERT INTO subscriptions (
+        subscription_id, account_id, plan_id, status, source,
+        granted_by, start_date, expiry_date, cancelled_at,
+        payment_reference, created_at, updated_at
+      )
+      SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      WHERE NOT EXISTS (
+        SELECT 1 FROM subscriptions WHERE account_id = ? AND source = 'trial'
+      )
+    `).bind(
+      sub.subscriptionId,
+      sub.accountId,
+      sub.planId,
+      sub.status,
+      sub.source,
+      sub.grantedBy,
+      sub.startDate,
+      sub.expiryDate,
+      sub.cancelledAt || null,
+      sub.paymentReference,
+      sub.createdAt,
+      sub.updatedAt,
+      sub.accountId
     );
     await stmt.run();
   }
@@ -360,6 +409,26 @@ export class EntitlementRepository {
         value = excluded.value,
         updated_at = excluded.updated_at
     `).bind(key, value, new Date().toISOString());
+    await stmt.run();
+  }
+
+  async getTrialClaimByEmailHash(emailHash: string): Promise<TrialClaimRecord | null> {
+    const stmt = this.db.prepare('SELECT * FROM trial_claims WHERE email_hash = ? LIMIT 1').bind(emailHash);
+    const row = await stmt.first<TrialClaimRecord>();
+    return row || null;
+  }
+
+  async createTrialClaim(claim: {
+    claimId: string;
+    emailHash: string;
+    firstClaimedAt: string;
+    trialExpiresAt: string;
+  }): Promise<void> {
+    const stmt = this.db.prepare(`
+      INSERT INTO trial_claims (claim_id, email_hash, first_claimed_at, trial_expires_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(email_hash) DO NOTHING
+    `).bind(claim.claimId, claim.emailHash, claim.firstClaimedAt, claim.trialExpiresAt);
     await stmt.run();
   }
 }

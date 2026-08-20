@@ -152,6 +152,11 @@ export interface RevokeSubscriptionRequest {
   reason: string;
 }
 
+export interface CancelRevokeSubscriptionRequest {
+  accountId: string;
+  reason: string;
+}
+
 export interface DeactivateAccountRequest {
   reason?: string;
 }

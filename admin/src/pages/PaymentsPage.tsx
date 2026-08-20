@@ -101,6 +101,13 @@ export const PaymentsPage: React.FC = () => {
     fetchPayments();
   };
 
+  // Auto-dismiss success message after 5 seconds
+  useEffect(() => {
+    if (!successMessage) return;
+    const timer = setTimeout(() => setSuccessMessage(null), 5000);
+    return () => clearTimeout(timer);
+  }, [successMessage]);
+
   const formatDate = (isoString?: string | null) => {
     if (!isoString) return '—';
     try {
@@ -387,7 +394,10 @@ export const PaymentsPage: React.FC = () => {
                       )}
                     </td>
                     <td>
-                      <span className="font-mono text-xs text-slate-300">
+                      <span
+                        className="font-mono text-xs text-slate-300"
+                        title={payment.recordedBy || undefined}
+                      >
                         {payment.recordedBy ? `${payment.recordedBy.substring(0, 8)}...` : 'System'}
                       </span>
                       <span className="text-[10px] text-slate-400 block capitalize">

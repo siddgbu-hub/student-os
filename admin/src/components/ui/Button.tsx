@@ -39,11 +39,6 @@ const variantInlineStyles: Record<NonNullable<ButtonProps['variant']>, React.CSS
   },
 };
 
-const sizeClasses = {
-  sm: 'px-2\\.5 py-1\\.5 text-xs gap-1\\.5',
-  md: 'px-4 py-2 text-sm gap-2',
-  lg: 'px-5 py-2\\.5 text-base gap-2\\.5',
-};
 
 export const Button: React.FC<ButtonProps> = ({
   children,

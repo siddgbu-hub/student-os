@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@student-os/ui';
+import { Plus, BookOpen, Clock, AlertCircle, Play, Pause, CheckCircle2, X } from 'lucide-react';
 import { useStudy } from '../../context/StudyContext.js';
 import { SubjectModal } from '../../components/study/SubjectModal.js';
 import { ChapterModal } from '../../components/study/ChapterModal.js';
@@ -75,18 +76,18 @@ export const StudyPage: React.FC = () => {
         <div
           role="alert"
           style={{
-            padding: 'var(--spacing-xs) var(--spacing-md)',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fca5a5',
-            color: '#991b1b',
-            fontSize: '0.85rem',
+            padding: '8px 14px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            color: 'var(--color-error)',
+            fontSize: '0.82rem',
             display: 'flex',
             alignItems: 'center',
-            gap: 'var(--spacing-xs)',
+            gap: '8px',
           }}
         >
-          <span style={{ fontWeight: 'bold' }}>⚠️</span>
+          <AlertCircle size={16} />
           <span>{errorMessage}</span>
         </div>
       )}
@@ -98,7 +99,7 @@ export const StudyPage: React.FC = () => {
           aria-labelledby="subjects-heading"
           style={{
             padding: 'var(--spacing-md)',
-            borderRadius: 'var(--radius-lg)',
+            borderRadius: 'var(--radius-md)',
             backgroundColor: 'var(--color-bg-secondary)',
             border: '1px solid var(--color-border)',
             display: 'flex',
@@ -114,7 +115,7 @@ export const StudyPage: React.FC = () => {
             }}
           >
             <div>
-              <h2 id="subjects-heading" style={{ fontSize: '1.05rem', fontWeight: '700', color: 'var(--color-text-primary)', margin: 0 }}>
+              <h2 id="subjects-heading" style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--color-text-primary)', margin: 0 }}>
                 Subjects
               </h2>
               <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.78rem', margin: '2px 0 0 0' }}>
@@ -128,9 +129,10 @@ export const StudyPage: React.FC = () => {
                 setSubjectToEdit(null);
                 setIsSubjectModalOpen(true);
               }}
-              style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', height: '34px' }}
+              style={{ fontSize: '0.78rem', padding: '0.3rem 0.7rem', height: '32px', gap: '4px' }}
             >
-              + Subject
+              <Plus size={13} />
+              <span>Subject</span>
             </Button>
           </div>
 
@@ -415,28 +417,32 @@ export const StudyPage: React.FC = () => {
           padding: 'var(--spacing-md) var(--spacing-lg)',
           borderRadius: 'var(--radius-lg)',
           backgroundColor: activeSession ? (activeSession.status === 'paused' ? 'var(--color-bg-secondary)' : 'var(--color-bg-primary)') : 'var(--color-bg-secondary)',
-          border: activeSession ? '2px solid var(--color-accent)' : '1px solid var(--color-border)',
-          boxShadow: activeSession ? '0 4px 16px rgba(37, 99, 235, 0.12)' : 'none',
+          border: activeSession ? '1px solid var(--color-accent)' : '1px solid var(--color-border)',
+          boxShadow: activeSession ? 'var(--shadow-md)' : 'none',
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-xs)' }}>
-          <h2 id="session-heading" style={{ fontSize: '1.05rem', fontWeight: '700', color: 'var(--color-text-primary)', margin: 0 }}>
+          <h2 id="session-heading" style={{ fontSize: '1rem', fontWeight: '600', color: 'var(--color-text-primary)', margin: 0 }}>
             Study Session
           </h2>
           {activeSession && (
             <span
               style={{
                 padding: '2px 8px',
-                borderRadius: 'var(--radius-sm)',
-                fontSize: '0.75rem',
-                fontWeight: '700',
-                letterSpacing: '0.05em',
+                borderRadius: 'var(--radius-xs)',
+                fontSize: '0.72rem',
+                fontWeight: '600',
+                letterSpacing: '0.04em',
                 textTransform: 'uppercase',
-                backgroundColor: activeSession.status === 'paused' ? '#fef3c7' : '#dbeafe',
-                color: activeSession.status === 'paused' ? '#92400e' : '#1e40af',
+                backgroundColor: activeSession.status === 'paused' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(37, 99, 235, 0.12)',
+                color: activeSession.status === 'paused' ? '#f59e0b' : 'var(--color-accent)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
               }}
             >
-              {activeSession.status === 'paused' ? '⏸ Paused' : '⏱ Running'}
+              {activeSession.status === 'paused' ? <Pause size={11} /> : <Clock size={11} />}
+              <span>{activeSession.status === 'paused' ? 'Paused' : 'Running'}</span>
             </span>
           )}
         </div>
@@ -444,11 +450,11 @@ export const StudyPage: React.FC = () => {
         {/* ACTIVE SESSION DISPLAY */}
         {activeSession ? (
           <div style={{ textAlign: 'center', padding: 'var(--spacing-xs) 0' }}>
-            <h3 style={{ fontSize: '1.2rem', color: 'var(--color-text-primary)', margin: '0 0 2px 0', fontWeight: '700' }}>
+            <h3 style={{ fontSize: '1.15rem', color: 'var(--color-text-primary)', margin: '0 0 2px 0', fontWeight: '600' }}>
               {activeSubject?.name || 'Subject'}
             </h3>
             {activeChapter && (
-              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem', margin: 0 }}>
+              <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.82rem', margin: 0 }}>
                 Chapter: {activeChapter.name}
               </p>
             )}
@@ -456,38 +462,42 @@ export const StudyPage: React.FC = () => {
             {/* HIGH-CONTRAST DIGITAL TIMER FOCUS */}
             <div
               style={{
-                fontSize: '3rem',
-                fontWeight: '700',
-                fontFamily: 'monospace',
+                fontSize: '2.75rem',
+                fontWeight: '600',
+                fontVariantNumeric: 'tabular-nums',
                 color: activeSession.status === 'paused' ? 'var(--color-text-secondary)' : 'var(--color-accent)',
                 margin: 'var(--spacing-xs) 0',
-                letterSpacing: '0.1rem',
+                letterSpacing: '-0.02em',
               }}
             >
               {formatDuration(elapsedSeconds)}
             </div>
 
             {/* UNIFIED BUTTON CONTROLS */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--spacing-sm)', flexWrap: 'wrap', marginTop: 'var(--spacing-xs)' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', flexWrap: 'wrap', marginTop: 'var(--spacing-xs)' }}>
               {activeSession.status === 'running' ? (
-                <Button type="button" variant="secondary" onClick={pauseSession} style={{ height: '36px', fontSize: '0.85rem' }}>
-                  Pause Session
+                <Button type="button" variant="secondary" onClick={pauseSession} style={{ height: '34px', fontSize: '0.82rem', gap: '5px' }}>
+                  <Pause size={14} />
+                  <span>Pause Session</span>
                 </Button>
               ) : (
-                <Button type="button" variant="primary" onClick={resumeSession} style={{ height: '36px', fontSize: '0.85rem' }}>
-                  Resume Session
+                <Button type="button" variant="primary" onClick={resumeSession} style={{ height: '34px', fontSize: '0.82rem', gap: '5px' }}>
+                  <Play size={14} />
+                  <span>Resume Session</span>
                 </Button>
               )}
-              <Button type="button" variant="primary" onClick={endSession} style={{ height: '36px', fontSize: '0.85rem' }}>
-                Complete & Save Session
+              <Button type="button" variant="primary" onClick={endSession} style={{ height: '34px', fontSize: '0.82rem', gap: '5px' }}>
+                <CheckCircle2 size={14} />
+                <span>Complete & Save</span>
               </Button>
               <Button
                 type="button"
                 variant="secondary"
                 onClick={cancelSession}
-                style={{ height: '36px', fontSize: '0.85rem', color: '#dc2626', borderColor: '#fca5a5' }}
+                style={{ height: '34px', fontSize: '0.82rem', color: 'var(--color-error)', borderColor: 'rgba(239, 68, 68, 0.3)', gap: '5px' }}
               >
-                Cancel Session
+                <X size={14} />
+                <span>Cancel</span>
               </Button>
             </div>
           </div>

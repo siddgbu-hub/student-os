@@ -315,9 +315,9 @@ export const TaskModal: React.FC<TaskModalProps> = ({ isOpen, taskToEdit, defaul
                   boxSizing: 'border-box',
                 }}
               >
-                <option value="high">🔥 High (Must Complete Today)</option>
-                <option value="medium">⚡ Medium (Should Complete)</option>
-                <option value="low">🌱 Low (Can Postpone)</option>
+                <option value="high">High (Must Complete Today)</option>
+                <option value="medium">Medium (Should Complete)</option>
+                <option value="low">Low (Can Postpone)</option>
               </select>
             </div>
           </div>

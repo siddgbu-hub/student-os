@@ -14,6 +14,40 @@ export const ALL_STUDENT_OS_FEATURES: string[] = [
   'cloud_sync',
 ];
 
+/**
+ * Authoritative Student OS Plan Configuration & Pricing (in integer paise)
+ * Monthly: ₹30 for 30 days (3000 paise)
+ * Yearly: ₹299 for 365 days (29900 paise)
+ */
+export const STUDENT_OS_PLANS = {
+  monthly: {
+    planId: 'monthly' as const,
+    name: 'Student OS Pro Monthly',
+    durationDays: 30,
+    listPricePaise: 3000,
+    currency: 'INR',
+  },
+  yearly: {
+    planId: 'yearly' as const,
+    name: 'Student OS Pro Yearly',
+    durationDays: 365,
+    listPricePaise: 29900,
+    currency: 'INR',
+  },
+  free_trial: {
+    planId: 'free_trial' as const,
+    name: '7-Day Free Trial',
+    durationDays: 7,
+    listPricePaise: 0,
+    currency: 'INR',
+  },
+} as const;
+
+export const PLAN_PRICING_PAISE = {
+  monthly: 3000,
+  yearly: 29900,
+} as const;
+
 export interface PlanDto {
   planId: string;
   name: string;

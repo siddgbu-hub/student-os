@@ -90,7 +90,7 @@ describe('RecordPaymentModal Component Tests', () => {
     expect(screen.getByText(/100% discount — this creates a ₹0 subscription purchase/i)).toBeDefined();
 
     // Enter required notes for 100% discount
-    const notesInput = screen.getByLabelText(/Notes \/ Reason/i);
+    const notesInput = screen.getByLabelText(/Notes/i);
     fireEvent.change(notesInput, { target: { value: '100% Merit Scholarship Concession' } });
 
     // Submit without transaction reference (valid for 100% discount)
@@ -153,7 +153,7 @@ describe('RecordPaymentModal Component Tests', () => {
     const refInput = screen.getByLabelText(/Transaction Reference/i);
     fireEvent.change(refInput, { target: { value: 'NEFT-HDFC-554433' } });
 
-    const notesInput = screen.getByLabelText(/Notes \/ Reason/i);
+    const notesInput = screen.getByLabelText(/Notes/i);
     fireEvent.change(notesInput, { target: { value: 'Annual subscription fee NEFT' } });
 
     // Submit
@@ -256,15 +256,16 @@ describe('RecordPaymentModal Component Tests', () => {
       />
     );
 
-    // Initial preview for monthly (₹299.00 list price)
+    // Initial preview for monthly (₹30.00 list price)
     expect(screen.getByText('Pricing Calculation Preview (Server-Authoritative)')).toBeDefined();
 
     // Click 50% preset
     const preset50Btn = screen.getByRole('button', { name: '50%' });
     fireEvent.click(preset50Btn);
 
-    // Preview should update to show 50% discount
-    expect(screen.getByText(/- ₹149.50 \(50%\)/i)).toBeDefined();
+    // Preview should update to show 50% discount (₹15.00)
+    expect(screen.getByText(/- ₹15.00 \(50%\)/i)).toBeDefined();
+    expect(screen.getByText('₹15.00')).toBeDefined();
   });
 
   it('8. closes modal on Escape key press', () => {
@@ -378,5 +379,151 @@ describe('RecordPaymentModal Component Tests', () => {
     await waitFor(() => {
       expect(screen.queryByRole('listbox')).toBeNull();
     });
+  });
+
+  // REGRESSION TEST — Discount Flow
+  it('11. [REGRESSION] partial discount sends correct discountPercent to backend and success message reflects final (discounted) amount, not list price', async () => {
+    // listPricePaise = 3000 (monthly ₹30.00), 25% discount → final = 2250 paise = ₹22.50
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        success: true,
+        data: { paymentId: 'pmt-disc-25', status: 'captured' },
+      }),
+    });
+    globalThis.fetch = mockFetch as any;
+
+    const onSuccess = vi.fn();
+
+    render(
+      <RecordPaymentModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSuccess={onSuccess}
+        initialAccountId="acc-disc"
+        initialStudentName="Test Discount Student"
+        initialStudentEmail="discount@example.com"
+      />
+    );
+
+    // Apply 25% discount via preset button
+    const preset25Btn = screen.getByRole('button', { name: '25%' });
+    fireEvent.click(preset25Btn);
+
+    // Preview must reflect discounted amount (₹22.50) not list price (₹30.00)
+    expect(screen.getByText(/- ₹7.50 \(25%\)/i)).toBeDefined();
+
+    // Provide required transaction reference for paid payment
+    const refInput = screen.getByLabelText(/Transaction Reference/i);
+    fireEvent.change(refInput, { target: { value: 'UPI-DISCOUNT-TEST-99' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Confirm & Record Payment/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      // 1. Backend receives discountPercent (not computed amount) — the correct contract
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/admin/payments/record'),
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            accountId: 'acc-disc',
+            planId: 'monthly',
+            discountPercent: 25,
+            paymentMethod: 'upi',
+            transactionReference: 'UPI-DISCOUNT-TEST-99',
+            durationDays: 30,
+            notes: undefined,
+            activatePro: true,
+          }),
+        })
+      );
+      // 2. Success message shows discounted final amount, not the list price
+      expect(onSuccess).toHaveBeenCalledWith(
+        expect.stringContaining('₹22.50')
+      );
+      expect(onSuccess).toHaveBeenCalledWith(
+        expect.stringContaining('25% Discount')
+      );
+      // 3. Success message must NOT show list price ₹30 as if no discount was applied
+      expect(onSuccess).not.toHaveBeenCalledWith(
+        expect.stringContaining('₹30.00')
+      );
+    });
+  });
+
+  it('12. displays sequential stacking preview banner when launched for student with active Pro', () => {
+    render(
+      <RecordPaymentModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+        initialAccountId="acc-pro-1"
+        initialStudentName="Kavya Nair"
+        initialStudentEmail="kavya@example.com"
+        currentPlanName="Monthly Pro"
+        currentExpiresAt="2026-09-20T18:30:00.000Z"
+      />
+    );
+
+    // Stacking preview banner should appear
+    expect(screen.getByText(/Sequential Stacking Active/i)).toBeDefined();
+    expect(screen.getByText(/Current Pro valid until:/i)).toBeDefined();
+    expect(screen.getAllByText(/21 Sept 2026/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/New Monthly Pro starts:/i)).toBeDefined();
+    expect(screen.getByText(/New plan starts automatically after current Pro ends with zero overlap\./i)).toBeDefined();
+  });
+
+  it('13. automatically switches payment method to complimentary when 100% discount preset is clicked', () => {
+    render(
+      <RecordPaymentModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+        initialAccountId="acc-comp-1"
+        initialStudentName="Dev Sharma"
+        initialStudentEmail="dev@example.com"
+      />
+    );
+
+    // Click 100% preset
+    const preset100 = screen.getByRole('button', { name: '100%' });
+    fireEvent.click(preset100);
+
+    // Final payable should be ₹0.00
+    expect(screen.getByText(/100% discount — this creates a ₹0 subscription purchase/i)).toBeDefined();
+  });
+
+  it('14. calculates correct pricing for Yearly Pro: ₹299 list price, ₹149.50 at 50%, and ₹0 at 100%', () => {
+    render(
+      <RecordPaymentModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+        initialAccountId="acc-yearly-1"
+        initialStudentName="Ananya Rao"
+        initialStudentEmail="ananya@example.com"
+      />
+    );
+
+    // Select Yearly Plan
+    const yearlyBtn = screen.getByRole('button', { name: /Yearly Pro/i });
+    fireEvent.click(yearlyBtn);
+
+    // 0% discount: List price ₹299.00, Final payable ₹299.00
+    expect(screen.getAllByText('₹299.00').length).toBeGreaterThan(0);
+
+    // 50% discount: Discount - ₹149.50, Final payable ₹149.50
+    const preset50 = screen.getByRole('button', { name: '50%' });
+    fireEvent.click(preset50);
+    expect(screen.getByText(/- ₹149.50 \(50%\)/i)).toBeDefined();
+    expect(screen.getByText('₹149.50')).toBeDefined();
+
+    // 100% discount: Discount - ₹299.00, Final payable ₹0.00
+    const preset100 = screen.getByRole('button', { name: '100%' });
+    fireEvent.click(preset100);
+    expect(screen.getByText(/- ₹299.00 \(100%\)/i)).toBeDefined();
+    expect(screen.getByText('₹0.00')).toBeDefined();
   });
 });

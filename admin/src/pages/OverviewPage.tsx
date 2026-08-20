@@ -205,7 +205,7 @@ export const OverviewPage: React.FC = () => {
               </CardContent>
             </Card>
 
-            {/* 4. Expiring (7D) → /students?filter=expiring_soon */}
+            {/* 4. Expiring (7D) → /students (student directory) */}
             <Card
               role="listitem"
               tabIndex={0}
@@ -289,7 +289,7 @@ export const OverviewPage: React.FC = () => {
                     {metrics.activeProMonthly}
                   </span>
                   <span className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
-                    ₹299 plan tier <ArrowRight className="w-2.5 h-2.5 opacity-40" />
+                    ₹30 plan tier <ArrowRight className="w-2.5 h-2.5 opacity-40" />
                   </span>
                 </button>
 
@@ -305,7 +305,7 @@ export const OverviewPage: React.FC = () => {
                     {metrics.activeProYearly}
                   </span>
                   <span className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
-                    ₹2,499 annual tier <ArrowRight className="w-2.5 h-2.5 opacity-40" />
+                    ₹299 annual tier <ArrowRight className="w-2.5 h-2.5 opacity-40" />
                   </span>
                 </button>
 

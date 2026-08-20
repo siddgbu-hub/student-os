@@ -249,7 +249,7 @@ describe('PHASE 9 — Audit Trail UI & Operator Activity Inspection Tests', () =
 
     renderAuditPage();
 
-    const accountInput = screen.getByPlaceholderText('UUID account ID...');
+    const accountInput = screen.getByPlaceholderText('Paste full UUID account ID...');
     fireEvent.change(accountInput, { target: { value: 'acc-1111-2222-3333-4444' } });
 
     const filterBtn = screen.getByRole('button', { name: /Filter/i });

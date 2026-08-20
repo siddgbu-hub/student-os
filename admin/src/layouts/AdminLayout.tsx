@@ -45,20 +45,25 @@ export const AdminLayout: React.FC = () => {
     }
   };
 
+  // Show the Back button only when we have a meaningful previous page inside SOCC
+  const showBackButton = location.key !== 'default' && location.pathname !== '/overview';
+
   return (
     <div className="socc-layout-root">
       {/* 1. MOBILE TOPBAR (Visible only on < 1024px screens) */}
       <header className="socc-mobile-topbar">
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleBack}
-            className="socc-back-btn"
-            aria-label="Go back"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Back</span>
-          </button>
+          {showBackButton && (
+            <button
+              type="button"
+              onClick={handleBack}
+              className="socc-back-btn"
+              aria-label="Go back"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Back</span>
+            </button>
+          )}
 
           <Link
             to="/overview"
@@ -150,7 +155,9 @@ export const AdminLayout: React.FC = () => {
                   <span className="socc-live-text">SOCC Engine Live</span>
                 </div>
                 <Badge variant="neutral" size="sm">
-                  {adminProfile?.role || 'Admin'}
+                  {adminProfile?.role
+                    ? adminProfile.role.charAt(0).toUpperCase() + adminProfile.role.slice(1)
+                    : 'Admin'}
                 </Badge>
               </div>
               <Button
@@ -216,7 +223,9 @@ export const AdminLayout: React.FC = () => {
               <span className="socc-live-text">SOCC Engine Live</span>
             </div>
             <Badge variant="neutral" size="sm">
-              {adminProfile?.role || 'Admin'}
+              {adminProfile?.role
+                ? adminProfile.role.charAt(0).toUpperCase() + adminProfile.role.slice(1)
+                : 'Admin'}
             </Badge>
           </div>
           <Button
@@ -236,15 +245,17 @@ export const AdminLayout: React.FC = () => {
         {/* Desktop Sticky Header with Back Button */}
         <header className="socc-desktop-header">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="socc-back-btn"
-              aria-label="Go back"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>Back</span>
-            </button>
+            {showBackButton && (
+              <button
+                type="button"
+                onClick={handleBack}
+                className="socc-back-btn"
+                aria-label="Go back"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span>Back</span>
+              </button>
+            )}
             <h2 className="socc-header-title">{getSectionTitle()}</h2>
           </div>
           <div className="socc-header-status">

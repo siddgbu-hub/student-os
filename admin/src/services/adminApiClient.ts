@@ -183,6 +183,13 @@ export class AdminApiClient {
     return this.post('/api/v1/admin/subscriptions/revoke', payload);
   }
 
+  async cancelRevokeSubscription(payload: {
+    accountId: string;
+    reason: string;
+  }): Promise<{ success: boolean; data: { entitlement: any; outcome: 'active' | 'expired'; auditLogId: string } }> {
+    return this.post('/api/v1/admin/subscriptions/cancel-revoke', payload);
+  }
+
   // Phase 7 Payment Endpoints
   async getPayments(query?: {
     page?: number;

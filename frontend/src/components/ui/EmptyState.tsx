@@ -30,24 +30,24 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
         alignItems: 'center',
         justifyContent: 'center',
         padding: 'var(--spacing-lg)',
-        borderRadius: 'var(--radius-lg)',
+        borderRadius: 'var(--radius-md)',
         border: '1px dashed var(--color-border)',
         backgroundColor: 'var(--color-bg-secondary)',
         textAlign: 'center',
-        minHeight: '200px',
+        minHeight: '180px',
         margin: 'var(--spacing-xs) 0',
       }}
     >
       {icon && (
-        <div style={{ color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)' }}>
+        <div style={{ color: 'var(--color-text-muted)', marginBottom: '8px' }}>
           {icon}
         </div>
       )}
       <h3
         style={{
-          margin: '0 0 6px 0',
-          fontSize: '1.05rem',
-          fontWeight: '700',
+          margin: '0 0 4px 0',
+          fontSize: '0.95rem',
+          fontWeight: '600',
           color: 'var(--color-text-primary)',
         }}
       >
@@ -56,24 +56,24 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
       <p
         style={{
           color: 'var(--color-text-secondary)',
-          fontSize: '0.85rem',
+          fontSize: '0.8125rem',
           margin: '0 0 var(--spacing-md) 0',
-          maxWidth: '420px',
-          lineHeight: '1.4',
+          maxWidth: '380px',
+          lineHeight: '1.45',
         }}
       >
         {description}
       </p>
 
       {(primaryAction || secondaryAction) && (
-        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', flexWrap: 'wrap', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
           {primaryAction && (
-            <Button type="button" onClick={primaryAction.onClick}>
+            <Button type="button" onClick={primaryAction.onClick} style={{ fontSize: '0.78rem', height: '32px' }}>
               {primaryAction.label}
             </Button>
           )}
           {secondaryAction && (
-            <Button type="button" variant="secondary" onClick={secondaryAction.onClick}>
+            <Button type="button" variant="secondary" onClick={secondaryAction.onClick} style={{ fontSize: '0.78rem', height: '32px' }}>
               {secondaryAction.label}
             </Button>
           )}

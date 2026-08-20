@@ -5,6 +5,7 @@ import { TimePeriod } from '@student-os/shared';
 import { TrendBarChart } from '../../components/analytics/TrendBarChart.js';
 import { SubjectDistributionChart } from '../../components/analytics/SubjectDistributionChart.js';
 import { GoalSummaryCard } from '../../components/goal/GoalSummaryCard.js';
+import { AlertCircle, Flame, Timer, RotateCcw, CheckCircle2, BarChart3 } from 'lucide-react';
 
 export const AnalyticsPage: React.FC = () => {
   const { dashboard, period, setPeriod, loading, error } = useAnalytics();
@@ -42,15 +43,19 @@ export const AnalyticsPage: React.FC = () => {
         <div
           role="alert"
           style={{
-            padding: 'var(--spacing-xs) var(--spacing-md)',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fca5a5',
-            color: '#991b1b',
-            fontSize: '0.85rem',
+            padding: '8px 14px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            color: 'var(--color-error)',
+            fontSize: '0.82rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
           }}
         >
-          <strong>⚠️ {error}</strong>
+          <AlertCircle size={16} />
+          <span>{error}</span>
         </div>
       )}
 
@@ -174,8 +179,9 @@ export const AnalyticsPage: React.FC = () => {
               <span style={{ fontSize: '0.72rem', color: 'var(--color-text-secondary)', fontWeight: '600', textTransform: 'uppercase' }}>
                 Study Streak
               </span>
-              <div style={{ fontSize: '1.3rem', fontWeight: '700', color: 'var(--color-text-primary)', marginTop: '2px' }}>
-                🔥 {prod?.currentStreakDays || 0} Days
+              <div style={{ fontSize: '1.3rem', fontWeight: '700', color: 'var(--color-text-primary)', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Flame size={18} color="#f59e0b" />
+                <span>{prod?.currentStreakDays || 0} Days</span>
               </div>
               <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                 Longest: {prod?.longestStreakDays || 0} days

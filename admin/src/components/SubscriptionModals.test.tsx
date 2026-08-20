@@ -5,6 +5,7 @@ import { GrantSubscriptionModal } from './GrantSubscriptionModal.js';
 import { ExtendSubscriptionModal } from './ExtendSubscriptionModal.js';
 import { ChangePlanModal } from './ChangePlanModal.js';
 import { RevokeSubscriptionModal } from './RevokeSubscriptionModal.js';
+import { CancelRevokeModal } from './CancelRevokeModal.js';
 import { UserDetailDrawer } from './UserDetailDrawer.js';
 import type { AdminUserDetailDto } from '@student-os/shared';
 
@@ -488,6 +489,97 @@ describe('PHASE 6 — Subscription Mutation Modals & Workflows Tests', () => {
   });
 
   // ----------------------------------------------------
+  // 4b. CANCEL REVOKE SUBSCRIPTION MODAL TESTS
+  // ----------------------------------------------------
+  describe('CancelRevokeModal', () => {
+    it('9b. renders modal with original plan preview and enables submit only after typing RESTORE and reason', async () => {
+      const handleClose = vi.fn();
+      const handleSuccess = vi.fn();
+
+      globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: any) => {
+        if (opts?.method === 'POST' && url.includes('/api/v1/admin/subscriptions/cancel-revoke')) {
+          const body = JSON.parse(opts.body);
+          expect(body.accountId).toBe('student-acc-123');
+          expect(body.reason).toBe('Identity verification complete');
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              data: {
+                outcome: 'active',
+                entitlement: { status: 'active' },
+              },
+            }),
+          });
+        }
+        return Promise.reject(new Error('Unknown url'));
+      });
+
+      render(
+        <CancelRevokeModal
+          isOpen={true}
+          accountId="student-acc-123"
+          studentName="Aarav Patel"
+          studentEmail="student@example.com"
+          originalPlanName="7-Day Free Trial"
+          originalExpiryDate={new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString()}
+          onClose={handleClose}
+          onSuccess={handleSuccess}
+        />
+      );
+
+      // Verify header and description
+      expect(screen.getByText('Cancel Subscription Revoke')).toBeDefined();
+      expect(screen.getByText(/Restore access using original subscription terms/i)).toBeDefined();
+      expect(screen.getByText('Aarav Patel')).toBeDefined();
+      expect(screen.getByText('7-Day Free Trial')).toBeDefined();
+      expect(screen.getByText(/Restores Active Access:/i)).toBeDefined();
+
+      const submitBtn = screen.getByRole('button', { name: /Restore Original Subscription/i }) as HTMLButtonElement;
+      expect(submitBtn.disabled).toBe(true);
+
+      // Enter reason
+      const reasonInput = screen.getByPlaceholderText(/Temporary suspension resolved/i);
+      fireEvent.change(reasonInput, { target: { value: 'Identity verification complete' } });
+      expect(submitBtn.disabled).toBe(true); // Still disabled without challenge
+
+      // Enter RESTORE challenge
+      const confirmInput = screen.getByPlaceholderText('RESTORE');
+      fireEvent.change(confirmInput, { target: { value: 'RESTORE' } });
+      expect(submitBtn.disabled).toBe(false);
+
+      // Submit
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(handleSuccess).toHaveBeenCalledWith(
+          expect.stringMatching(/Subscription un-revoked: active access restored on original terms/i)
+        );
+        expect(handleClose).toHaveBeenCalled();
+      });
+    });
+
+    it('9c. displays expired outcome preview when original expiry date has elapsed', () => {
+      render(
+        <CancelRevokeModal
+          isOpen={true}
+          accountId="student-acc-123"
+          studentName="Aarav Patel"
+          studentEmail="student@example.com"
+          originalPlanName="Monthly Pro"
+          originalExpiryDate={new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()}
+          onClose={vi.fn()}
+          onSuccess={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText(/Original Period Has Elapsed:/i)).toBeDefined();
+      expect(screen.getByText(/Cancelling revocation will resolve this account directly to/i)).toBeDefined();
+    });
+  });
+
+  // ----------------------------------------------------
   // 5. USER DETAIL DRAWER MUTATION INTEGRATION & REFETCH
   // ----------------------------------------------------
   describe('UserDetailDrawer Mutation Integration', () => {
@@ -548,14 +640,14 @@ describe('PHASE 6 — Subscription Mutation Modals & Workflows Tests', () => {
       });
     });
 
-    it('11. displays retry banner when post-mutation refetch fails', async () => {
+    it('11. displays retry banner when post-mutation refetch fails after RecordPaymentModal submission', async () => {
       let isFirstGet = true;
       globalThis.fetch = vi.fn().mockImplementation((url: string, opts?: any) => {
-        if (opts?.method === 'POST' && url.includes('/api/v1/admin/subscriptions/grant')) {
+        if (opts?.method === 'POST' && url.includes('/api/v1/admin/payments/record')) {
           return Promise.resolve({
             ok: true,
             status: 200,
-            json: async () => ({ success: true, data: {} }),
+            json: async () => ({ success: true, data: { paymentId: 'p-1', status: 'captured' } }),
           });
         }
         if (isFirstGet) {
@@ -576,20 +668,85 @@ describe('PHASE 6 — Subscription Mutation Modals & Workflows Tests', () => {
         expect(screen.getByText('Aarav Patel')).toBeDefined();
       });
 
-      // Open Grant modal and submit
+      // Open Grant modal (which opens RecordPaymentModal with student preselected)
       const grantBtn = screen.getByRole('button', { name: /Grant Pro/i });
       fireEvent.click(grantBtn);
 
-      const reasonInput = screen.getByLabelText(/Administrative Reason/i);
-      fireEvent.change(reasonInput, { target: { value: 'Granting scholarship access' } });
+      // Verify RecordPaymentModal opened with preselected student
+      expect(screen.getByText('Record Manual Payment')).toBeDefined();
+      expect(screen.getAllByText('Aarav Patel').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('student@example.com').length).toBeGreaterThan(0);
 
-      const confirmBtn = screen.getByRole('button', { name: /Confirm & Grant Pro/i });
+      // Select 100% discount and fill notes
+      const preset100 = screen.getByRole('button', { name: '100%' });
+      fireEvent.click(preset100);
+
+      const notesInput = screen.getByLabelText(/Notes \/ Administrative Reason/i);
+      fireEvent.change(notesInput, { target: { value: 'Granting scholarship access' } });
+
+      const confirmBtn = screen.getByRole('button', { name: /Confirm & Record Payment/i });
       fireEvent.click(confirmBtn);
 
       await waitFor(() => {
         expect(screen.getByText(/Subscription updated, but the latest student details could not be refreshed\. Please retry\./i)).toBeDefined();
         expect(screen.getByRole('button', { name: /Retry/i })).toBeDefined();
       });
+    });
+
+    it('12. UserDetailDrawer displays "Cancel Revoke" button when status is revoked, and opens CancelRevokeModal with original plan info', async () => {
+      const revokedDetail: AdminUserDetailDto = {
+        ...mockDetail,
+        entitlement: {
+          ...mockDetail.entitlement!,
+          status: 'revoked',
+          isPaid: false,
+          features: [],
+          expiresAt: null,
+        },
+        subscriptions: [
+          {
+            subscriptionId: 'sub-revoked-01',
+            accountId: 'student-acc-123',
+            planId: 'monthly',
+            planName: 'Monthly Pro',
+            status: 'revoked',
+            source: 'payment',
+            grantedBy: 'admin-1',
+            startDate: '2026-08-01T00:00:00.000Z',
+            expiryDate: '2026-08-31T00:00:00.000Z',
+            cancelledAt: null,
+            paymentReference: 'pay-01',
+            createdAt: '2026-08-01T00:00:00.000Z',
+            updatedAt: '2026-08-16T00:00:00.000Z',
+          },
+        ],
+      };
+
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, data: revokedDetail }),
+      });
+
+      render(<UserDetailDrawer accountId="student-acc-123" onClose={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(screen.getByRole('heading', { name: 'Aarav Patel' })).toBeDefined();
+        expect(screen.getAllByText(/REVOKED/i).length).toBeGreaterThan(0);
+      });
+
+      // Verify "Cancel Revoke" button is rendered instead of "Revoke"
+      const cancelRevokeBtn = screen.getByRole('button', { name: /Cancel Revoke/i });
+      expect(cancelRevokeBtn).toBeDefined();
+      expect(screen.queryByRole('button', { name: /^Revoke$/i })).toBeNull();
+
+      // Click "Cancel Revoke" button
+      fireEvent.click(cancelRevokeBtn);
+
+      // Verify CancelRevokeModal opens with original plan & expiry
+      expect(screen.getByText('Cancel Subscription Revoke')).toBeDefined();
+      expect(screen.getAllByText('Monthly Pro').length).toBeGreaterThan(0);
+      expect(screen.getByPlaceholderText('RESTORE')).toBeDefined();
     });
   });
 });

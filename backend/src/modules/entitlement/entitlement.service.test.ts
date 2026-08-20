@@ -86,6 +86,7 @@ class MockEntitlementRepository extends EntitlementRepository {
   private subscriptions: SubscriptionDto[] = [];
   private auditLogs: EntitlementAuditLogDto[] = [];
   private appConfig = new Map<string, string>([['payment_live', 'false']]);
+  private trialClaims = new Map<string, any>();
 
   constructor() {
     super({} as D1Database);
@@ -116,6 +117,13 @@ class MockEntitlementRepository extends EntitlementRepository {
 
   override async upsertEntitlement(entitlement: EntitlementDto): Promise<void> {
     this.entitlements.set(entitlement.accountId, entitlement);
+  }
+
+  override async createInitialTrialSubscription(sub: any): Promise<void> {
+    const exists = this.subscriptions.some((s) => s.accountId === sub.accountId && s.source === 'trial');
+    if (!exists) {
+      this.subscriptions.push(sub);
+    }
   }
 
   override async createSubscription(sub: any): Promise<void> {
@@ -152,6 +160,40 @@ class MockEntitlementRepository extends EntitlementRepository {
 
   override async setAppConfig(key: string, value: string): Promise<void> {
     this.appConfig.set(key, value);
+  }
+
+  override async getTrialClaimByEmailHash(emailHash: string): Promise<any | null> {
+    return this.trialClaims.get(emailHash) || null;
+  }
+
+  override async createTrialClaim(claim: any): Promise<void> {
+    if (!this.trialClaims.has(claim.emailHash)) {
+      this.trialClaims.set(claim.emailHash, {
+        claim_id: claim.claimId,
+        email_hash: claim.emailHash,
+        first_claimed_at: claim.firstClaimedAt,
+        trial_expires_at: claim.trialExpiresAt,
+      });
+    }
+  }
+
+  // Helper to simulate account hard-deletion for tests
+  deleteAccountForTesting(accountId: string): void {
+    this.accounts.delete(accountId);
+    this.entitlements.delete(accountId);
+    this.subscriptions = this.subscriptions.filter((s) => s.accountId !== accountId);
+    this.auditLogs = this.auditLogs.filter((l) => l.accountId !== accountId);
+    // Notice: trialClaims is NOT deleted, exactly matching the production database design!
+  }
+
+  // Helper to simulate creating a new account (or re-registration)
+  createAccountForTesting(accountId: string, email: string, createdAt: string): void {
+    this.accounts.set(accountId, {
+      account_id: accountId,
+      email,
+      created_at: createdAt,
+      last_login_at: createdAt,
+    });
   }
 }
 
@@ -475,6 +517,189 @@ describe('Student OS — Final Release Entitlement Model (7-Day Trial + Full Acc
       expect(entitlement.isPaid).toBe(true);
       expect(entitlement.currentPlanId).toBe('monthly');
       expect(entitlement.features).toEqual(ALL_STUDENT_OS_FEATURES);
+    });
+
+    it('22. [CONCURRENCY REGRESSION] 16 concurrent requests on first login create exactly ONE trial subscription row', async () => {
+      const concurrentAcc = 'acc-concurrent-first-login';
+      (repo as any).accounts.set(concurrentAcc, {
+        account_id: concurrentAcc,
+        email: 'concurrent@studentos.com',
+        created_at: new Date().toISOString(),
+        last_login_at: new Date().toISOString(),
+      });
+
+      // Simulate 16 simultaneous requests hitting getEntitlement at the same millisecond
+      const parallelRequests = Array.from({ length: 16 }, () => service.getEntitlement(concurrentAcc));
+      const results = await Promise.all(parallelRequests);
+
+      // Verify all 16 returned active trial entitlements
+      for (const ent of results) {
+        expect(ent.status).toBe('active');
+        expect(ent.currentPlanId).toBe('free_trial');
+      }
+
+      // Verify exactly ONE subscription was created in the database
+      const allSubs = await repo.getAllSubscriptionsForAccount(concurrentAcc);
+      expect(allSubs.length).toBe(1);
+      expect(allSubs[0].source).toBe('trial');
+      expect(allSubs[0].status).toBe('active');
+    });
+  });
+
+  describe('Anti-Trial-Reset Hardening (Account Deletion & Email Normalization)', () => {
+    it('A. new account receives trial once and creates persistent trial-claim marker', async () => {
+      const accId = 'acc-new-student-1';
+      const email = 'newstudent1@example.com';
+      repo.createAccountForTesting(accId, email, new Date().toISOString());
+
+      const ent = await service.getEntitlement(accId);
+      expect(ent.status).toBe('active');
+      expect(ent.currentPlanId).toBe('free_trial');
+      expect(ent.isPaid).toBe(false);
+      expect(ent.features).toEqual(ALL_STUDENT_OS_FEATURES);
+
+      // Verify trial claim exists
+      const emailHash = await (await import('../../services/crypto.service.js')).hashString(email.toLowerCase().trim());
+      const claim = await repo.getTrialClaimByEmailHash(emailHash);
+      expect(claim).not.toBeNull();
+      expect(claim.trial_expires_at).toBe(ent.expiresAt);
+    });
+
+    it('B. existing trial for active account remains unchanged across multiple requests', async () => {
+      const accId = 'acc-existing-student-2';
+      const email = 'existingstudent2@example.com';
+      repo.createAccountForTesting(accId, email, new Date().toISOString());
+
+      const ent1 = await service.getEntitlement(accId);
+      const ent2 = await service.getEntitlement(accId);
+      expect(ent1.expiresAt).toBe(ent2.expiresAt);
+      expect(ent1.status).toBe(ent2.status);
+    });
+
+    it('C. [CRITICAL] deleted-account email CANNOT receive a second trial after trial expired', async () => {
+      const oldAccId = 'acc-old-trial-expired';
+      const email = 'trialabuser@example.com';
+      const pastCreation = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(); // 10 days ago
+
+      // 1. Initial account consumed 7-day trial
+      repo.createAccountForTesting(oldAccId, email, pastCreation);
+      const oldEnt = await service.getEntitlement(oldAccId);
+      expect(oldEnt.status).toBe('expired');
+      expect(oldEnt.features).toEqual([]);
+
+      // 2. User deletes their account (simulates POST /api/v1/account/delete)
+      repo.deleteAccountForTesting(oldAccId);
+
+      // 3. User signs up again with the EXACT SAME email (gets brand new account_id with NOW timestamp)
+      const newAccId = 'acc-new-trial-abuser';
+      const newCreation = new Date().toISOString();
+      repo.createAccountForTesting(newAccId, email, newCreation);
+
+      // 4. System resolves entitlement for the new account
+      const newEnt = await service.getEntitlement(newAccId);
+
+      // 5. MUST resolve to 'expired' and must NOT grant a new 7-day trial!
+      expect(newEnt.status).toBe('expired');
+      expect(newEnt.isPaid).toBe(false);
+      expect(newEnt.currentPlanId).toBe('free_trial');
+      expect(newEnt.features).toEqual([]);
+      // Expiration date reflects original past expiration, NOT +7 days from now
+      expect(new Date(newEnt.expiresAt!).getTime()).toBeLessThan(Date.now());
+    });
+
+    it('D. same email with different casing (e.g. AbUser@Example.COM) cannot bypass trial reset restriction', async () => {
+      const oldAccId = 'acc-casing-test-1';
+      const emailLower = 'casingabuser@example.com';
+      const pastCreation = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+
+      // Initial account created in lowercase
+      repo.createAccountForTesting(oldAccId, emailLower, pastCreation);
+      await service.getEntitlement(oldAccId);
+
+      // Delete old account
+      repo.deleteAccountForTesting(oldAccId);
+
+      // Re-register with mixed uppercase and whitespace
+      const newAccId = 'acc-casing-test-2';
+      const emailMixed = '  CasingAbUser@EXAMPLE.com  ';
+      repo.createAccountForTesting(newAccId, emailMixed, new Date().toISOString());
+
+      const newEnt = await service.getEntitlement(newAccId);
+      expect(newEnt.status).toBe('expired');
+      expect(newEnt.features).toEqual([]);
+    });
+
+    it('E. Google authentication / re-registration path cannot bypass trial restriction', async () => {
+      const oldAccId = 'acc-google-1';
+      const googleEmail = 'googleuser@gmail.com';
+      const pastCreation = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
+
+      repo.createAccountForTesting(oldAccId, googleEmail, pastCreation);
+      await service.getEntitlement(oldAccId);
+
+      // Delete account
+      repo.deleteAccountForTesting(oldAccId);
+
+      // Re-authenticated via Google ID token (same email, new account UUID)
+      const newAccId = 'acc-google-recreated-2';
+      repo.createAccountForTesting(newAccId, googleEmail, new Date().toISOString());
+
+      const newEnt = await service.getEntitlement(newAccId);
+      expect(newEnt.status).toBe('expired');
+      expect(newEnt.features).toEqual([]);
+    });
+
+    it('F. Pro plan purchase / grant remains fully functional even after account deletion and trial expiry', async () => {
+      const oldAccId = 'acc-pro-buyer-old';
+      const email = 'probuyer@example.com';
+      const pastCreation = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString();
+
+      repo.createAccountForTesting(oldAccId, email, pastCreation);
+      await service.getEntitlement(oldAccId);
+      repo.deleteAccountForTesting(oldAccId);
+
+      // Re-registered account (trial expired)
+      const newAccId = 'acc-pro-buyer-new';
+      repo.createAccountForTesting(newAccId, email, new Date().toISOString());
+
+      // Grant Pro access
+      await service.grantManualEntitlement({
+        accountId: newAccId,
+        planId: 'monthly',
+        durationDays: 30,
+        grantedBy: adminId,
+        reason: 'Subscribed to Pro Monthly',
+      });
+
+      const ent = await service.getEntitlement(newAccId);
+      expect(ent.status).toBe('active');
+      expect(ent.isPaid).toBe(true);
+      expect(ent.currentPlanId).toBe('monthly');
+      expect(ent.features).toEqual(ALL_STUDENT_OS_FEATURES);
+    });
+
+    it('G. partially consumed trial retains original expiration window if re-registered before 7 days elapses', async () => {
+      const oldAccId = 'acc-partial-old';
+      const email = 'partialtrial@example.com';
+      // Created 3 days ago (4 days remaining)
+      const created3DaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+
+      repo.createAccountForTesting(oldAccId, email, created3DaysAgo);
+      const ent1 = await service.getEntitlement(oldAccId);
+      expect(ent1.status).toBe('active');
+      const originalExpiry = ent1.expiresAt;
+
+      // Delete on Day 3
+      repo.deleteAccountForTesting(oldAccId);
+
+      // Re-register today
+      const newAccId = 'acc-partial-new';
+      repo.createAccountForTesting(newAccId, email, new Date().toISOString());
+
+      const ent2 = await service.getEntitlement(newAccId);
+      // Still active because 4 days remain, but expiresAt is the original Day 7 date (NOT 7 days from today)
+      expect(ent2.status).toBe('active');
+      expect(ent2.expiresAt).toBe(originalExpiry);
     });
   });
 });

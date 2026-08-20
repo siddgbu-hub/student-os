@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { DeactivateAccountModal } from './DeactivateAccountModal.js';
 import { ReactivateAccountModal } from './ReactivateAccountModal.js';
 import { RevokeAllSessionsModal } from './RevokeAllSessionsModal.js';
@@ -505,6 +505,90 @@ describe('Student Account Lifecycle Modals & Danger Zone Tests', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Reactivate Account?')).toBeDefined();
+      });
+    });
+  });
+
+  describe('8. Delete Account Modal End-to-End Trigger & Portal Verification', () => {
+    it('opens DeleteAccountModal from UserDetailDrawer, renders via portal to document.body with z-60, validates DELETE challenge, and submits successfully', async () => {
+      const mockFetch = vi.fn().mockImplementation((url: string, options?: { method?: string }) => {
+        if (options?.method === 'DELETE') {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              data: { message: 'Account for student@example.com permanently deleted.' },
+            }),
+          });
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ success: true, data: mockActiveDetail }),
+        });
+      });
+      globalThis.fetch = mockFetch as any;
+
+      const onDeleteSuccess = vi.fn();
+      const onClose = vi.fn();
+
+      render(
+        <UserDetailDrawer
+          accountId="student-acc-123"
+          onClose={onClose}
+          onDeleteSuccess={onDeleteSuccess}
+        />
+      );
+
+      // 1. Verify Delete button is rendered for eligible student in Danger Zone
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /delete account permanently/i })).toBeDefined();
+      });
+
+      // 2. Click Delete Account Permanently
+      const deleteBtn = screen.getByRole('button', { name: /delete account permanently/i });
+      fireEvent.click(deleteBtn);
+
+      // 3. Verify DeleteAccountModal mounts into document.body with z-60
+      await waitFor(() => {
+        expect(screen.getByText('DELETE ACCOUNT PERMANENTLY?')).toBeDefined();
+      });
+
+      const dialogs = screen.getAllByRole('dialog');
+      // The DeleteAccountModal dialog is portaled to document.body and has z-60 class
+      const modalDialog = dialogs.find((d) => d.getAttribute('aria-labelledby') === 'delete-account-modal-title');
+      expect(modalDialog).toBeDefined();
+      expect(modalDialog?.parentElement).toBe(document.body);
+      expect(modalDialog?.className).toContain('z-60');
+
+      // 4. Submit button inside the modal is initially disabled before challenge text is entered
+      const modalScope = within(modalDialog!);
+      const submitDeleteBtn = modalScope.getByRole('button', { name: /^Delete Account Permanently$/i });
+      expect((submitDeleteBtn as HTMLButtonElement).disabled).toBe(true);
+
+      // 5. Typing partial/incorrect text leaves submit button disabled
+      const challengeInput = modalScope.getByPlaceholderText('DELETE');
+      fireEvent.change(challengeInput, { target: { value: 'del' } });
+      expect((submitDeleteBtn as HTMLButtonElement).disabled).toBe(true);
+
+      // 6. Typing exact 'DELETE' enables submit button
+      fireEvent.change(challengeInput, { target: { value: 'DELETE' } });
+      expect((submitDeleteBtn as HTMLButtonElement).disabled).toBe(false);
+
+      // 7. Click Confirm Delete
+      fireEvent.click(submitDeleteBtn);
+
+      // 8. Verify API called and success handler notified
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalledWith(
+          expect.stringContaining('/api/v1/admin/accounts/student-acc-123'),
+          expect.objectContaining({ method: 'DELETE' })
+        );
+        expect(onDeleteSuccess).toHaveBeenCalledWith(
+          'student-acc-123',
+          'Account for student@example.com permanently deleted.'
+        );
       });
     });
   });

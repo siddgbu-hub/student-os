@@ -1,10 +1,12 @@
 import {
   ALL_STUDENT_OS_FEATURES,
+  PLAN_PRICING_PAISE,
   type EntitlementDto,
   type SubscriptionDto,
   type PaymentDto,
   type PlanDto,
 } from '@student-os/shared';
+import { calculateIstExpiryDate, getStartOfIstDay } from '../../utils/ist-date.js';
 
 export const SUBSCRIPTION_ERRORS = {
   ACCOUNT_NOT_FOUND: 'ACCOUNT_NOT_FOUND',
@@ -17,6 +19,7 @@ export const SUBSCRIPTION_ERRORS = {
   INVALID_PAYMENT_METHOD: 'INVALID_PAYMENT_METHOD',
   INVALID_PAYMENT_DATA: 'INVALID_PAYMENT_DATA',
   INVALID_REASON: 'INVALID_REASON',
+  NO_REVOKED_SUBSCRIPTION: 'NO_REVOKED_SUBSCRIPTION',
 } as const;
 
 export class SubscriptionDomainError extends Error {
@@ -53,6 +56,12 @@ export interface ChangePlanParams {
 }
 
 export interface RevokeAccessParams {
+  accountId: string;
+  reason: string;
+  adminAccountId: string;
+}
+
+export interface CancelRevokeParams {
   accountId: string;
   reason: string;
   adminAccountId: string;
@@ -95,6 +104,21 @@ interface EntitlementRow {
   features: string;
   expires_at: string | null;
   last_verified_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface SubscriptionRow {
+  subscription_id: string;
+  account_id: string;
+  plan_id: string;
+  status: string;
+  source: string;
+  granted_by: string | null;
+  start_date: string;
+  expiry_date: string | null;
+  cancelled_at: string | null;
+  payment_reference: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -207,18 +231,56 @@ export class SubscriptionManagementService {
 
     const currentEnt = await this.getEntitlement(accountId);
     const now = new Date();
-    const startDate = now.toISOString();
-    const expiryDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+    const nowIso = now.toISOString();
+
+    // Check for existing valid active Pro subscription with future expiry (Rule 4: Stacking)
+    const activeProStmt = this.db
+      .prepare(
+        `SELECT * FROM subscriptions
+         WHERE account_id = ?
+           AND status = 'active'
+           AND plan_id IN ('monthly', 'yearly')
+           AND expiry_date IS NOT NULL
+         ORDER BY expiry_date DESC
+         LIMIT 1`
+      )
+      .bind(accountId);
+    const latestActivePro = await activeProStmt.first<SubscriptionRow>();
+
+    const isStacking = Boolean(
+      latestActivePro &&
+      latestActivePro.expiry_date &&
+      new Date(latestActivePro.expiry_date).getTime() > now.getTime()
+    );
+
+    let startDate: string;
+    let expiryDate: string;
+
+    if (isStacking) {
+      // RULE 4: Sequential Queueing / Stacking after current Pro ends (no overlap)
+      startDate = latestActivePro!.expiry_date!;
+      expiryDate = calculateIstExpiryDate(new Date(startDate), durationDays, planId);
+    } else {
+      // RULE 5: Immediate activation on current calendar day
+      startDate = nowIso;
+      expiryDate = calculateIstExpiryDate(now, durationDays, planId);
+    }
+
     const subscriptionId = crypto.randomUUID();
     const auditLogId = crypto.randomUUID();
 
     const planFeatures: string[] = plan.features ? JSON.parse(plan.features) : ALL_STUDENT_OS_FEATURES;
     const finalFeatures = planFeatures.length > 0 ? planFeatures : ALL_STUDENT_OS_FEATURES;
 
-    // 1. Supersede previous active subscriptions
-    const stmt1 = this.db
-      .prepare(`UPDATE subscriptions SET status = 'superseded', updated_at = ? WHERE account_id = ? AND status = 'active'`)
-      .bind(startDate, accountId);
+    const batchStatements = [];
+
+    // 1. Supersede previous active non-pro/trial subscriptions (only when NOT stacking)
+    if (!isStacking) {
+      const stmt1 = this.db
+        .prepare(`UPDATE subscriptions SET status = 'superseded', updated_at = ? WHERE account_id = ? AND status = 'active'`)
+        .bind(nowIso, accountId);
+      batchStatements.push(stmt1);
+    }
 
     // 2. Insert new active subscription
     const stmt2 = this.db
@@ -237,11 +299,12 @@ export class SubscriptionManagementService {
         startDate,
         expiryDate,
         paymentId || null,
-        startDate,
-        startDate
+        nowIso,
+        nowIso
       );
+    batchStatements.push(stmt2);
 
-    // 3. Upsert authoritative entitlement
+    // 3. Upsert authoritative entitlement (continuous access until expiryDate)
     const entitlementId = currentEnt ? currentEnt.entitlement_id : crypto.randomUUID();
     const stmt3 = this.db
       .prepare(
@@ -264,16 +327,19 @@ export class SubscriptionManagementService {
         plan.plan_id,
         JSON.stringify(finalFeatures),
         expiryDate,
-        startDate,
-        currentEnt ? currentEnt.created_at : startDate,
-        startDate
+        nowIso,
+        currentEnt ? currentEnt.created_at : nowIso,
+        nowIso
       );
+    batchStatements.push(stmt3);
 
     // 4. Record audit log
     const auditDetails = {
-      action: 'GRANT_PRO',
+      action: isStacking ? 'STACK_PRO' : 'GRANT_PRO',
       reason: reason.trim(),
       durationDays,
+      isStacking,
+      queuedStartDate: isStacking ? startDate : null,
       previousPlanId: currentEnt?.current_plan_id || null,
       previousStatus: currentEnt?.status || null,
       previousExpiry: currentEnt?.expires_at || null,
@@ -297,11 +363,12 @@ export class SubscriptionManagementService {
         startDate,
         expiryDate,
         JSON.stringify(auditDetails),
-        startDate
+        nowIso
       );
+    batchStatements.push(stmt4);
 
     // Execute multi-table transaction atomically
-    await this.db.batch([stmt1, stmt2, stmt3, stmt4]);
+    await this.db.batch(batchStatements);
 
     const subscription: SubscriptionDto = {
       subscriptionId,
@@ -315,8 +382,8 @@ export class SubscriptionManagementService {
       expiryDate,
       cancelledAt: null,
       paymentReference: paymentId || null,
-      createdAt: startDate,
-      updatedAt: startDate,
+      createdAt: nowIso,
+      updatedAt: nowIso,
     };
 
     const entitlement: EntitlementDto = {
@@ -328,9 +395,9 @@ export class SubscriptionManagementService {
       isPaid: true,
       features: finalFeatures,
       expiresAt: expiryDate,
-      lastVerifiedAt: startDate,
-      createdAt: currentEnt ? currentEnt.created_at : startDate,
-      updatedAt: startDate,
+      lastVerifiedAt: nowIso,
+      createdAt: currentEnt ? currentEnt.created_at : nowIso,
+      updatedAt: nowIso,
     };
 
     return { subscription, entitlement, auditLogId };
@@ -375,18 +442,17 @@ export class SubscriptionManagementService {
     const plan = await this.getPlan(targetPlanId);
     const source: 'manual' | 'trial' = isPaid ? 'manual' : 'trial';
 
-    // Calculate extension expiry
+    // Calculate extension expiry using IST calendar days
     let newExpiryDate: string;
     const isCurrentlyActive = currentEnt && currentEnt.status === 'active' && currentEnt.expires_at;
     const hasRemainingTime = isCurrentlyActive && new Date(currentEnt.expires_at!).getTime() > now.getTime();
 
     if (hasRemainingTime) {
       // Active Extension Rule: extend from existing expiry date
-      const existingExpiryMs = new Date(currentEnt.expires_at!).getTime();
-      newExpiryDate = new Date(existingExpiryMs + durationDays * 24 * 60 * 60 * 1000).toISOString();
+      newExpiryDate = calculateIstExpiryDate(new Date(currentEnt.expires_at!), durationDays);
     } else {
       // Expired / New Term Rule: extend from now
-      newExpiryDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+      newExpiryDate = calculateIstExpiryDate(now, durationDays);
     }
 
     const subscriptionId = crypto.randomUUID();
@@ -541,7 +607,7 @@ export class SubscriptionManagementService {
     const now = new Date();
     const startDate = now.toISOString();
     const durationDays = newPlan.duration_days || (newPlanId === 'yearly' ? 365 : 30);
-    const newExpiryDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+    const newExpiryDate = calculateIstExpiryDate(now, durationDays, newPlanId);
 
     const subscriptionId = crypto.randomUUID();
     const auditLogId = crypto.randomUUID();
@@ -768,6 +834,186 @@ export class SubscriptionManagementService {
   }
 
   /**
+   * 4b. Cancel Subscription Revocation (Reversible Access Suspension)
+   *
+   * Restores access using the original subscription terms without creating a new subscription row.
+   * - Locates the latest revoked subscription for the account.
+   * - Preserves the exact same subscription_id, start_date, expiry_date, source, and plan.
+   * - If now < original expiry_date:
+   *     - Sets subscriptions.status to 'active'.
+   *     - Restores entitlement to 'active' with appropriate plan features and original expires_at.
+   *     - Logs audit event: 'REVOCATION_CANCELLED' with outcome 'active'.
+   * - If now >= original expiry_date:
+   *     - Sets subscriptions.status to 'expired'.
+   *     - Sets entitlement to 'expired', is_paid: 0, features: [], preserving original expires_at.
+   *     - Logs audit event: 'REVOCATION_CANCELLED' with outcome 'expired'.
+   * - Executes as an atomic D1 batch.
+   */
+  async cancelRevoke(params: CancelRevokeParams): Promise<{
+    entitlement: EntitlementDto;
+    outcome: 'active' | 'expired';
+    auditLogId: string;
+  }> {
+    const { accountId, reason, adminAccountId } = params;
+
+    if (!reason || reason.trim().length < 3) {
+      throw new SubscriptionDomainError(
+        SUBSCRIPTION_ERRORS.INVALID_REASON,
+        'A valid reason (minimum 3 characters) is required for cancelling revocation.'
+      );
+    }
+
+    await this.getAccount(accountId);
+
+    // Locate all revoked subscriptions for this account
+    const revokedSubsStmt = this.db
+      .prepare(
+        `SELECT * FROM subscriptions
+         WHERE account_id = ? AND status = 'revoked'
+         ORDER BY expiry_date DESC, created_at DESC`
+      )
+      .bind(accountId);
+    const result = await revokedSubsStmt.all<SubscriptionRow>();
+    const revokedSubs = result.results || [];
+
+    if (revokedSubs.length === 0) {
+      throw new SubscriptionDomainError(
+        SUBSCRIPTION_ERRORS.NO_REVOKED_SUBSCRIPTION,
+        'No revoked subscription found for this account to restore.'
+      );
+    }
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const auditLogId = crypto.randomUUID();
+
+    const activeRestoredSubs: SubscriptionRow[] = [];
+    const expiredRestoredSubs: SubscriptionRow[] = [];
+    const batchStatements = [];
+
+    // 1. Update all existing revoked subscription rows (NO INSERT INTO subscriptions)
+    for (const sub of revokedSubs) {
+      const isSubExpired = sub.expiry_date ? new Date(sub.expiry_date).getTime() <= now.getTime() : false;
+      const subOutcome: 'active' | 'expired' = isSubExpired ? 'expired' : 'active';
+      if (subOutcome === 'active') {
+        activeRestoredSubs.push(sub);
+      } else {
+        expiredRestoredSubs.push(sub);
+      }
+      const stmt = this.db
+        .prepare(`UPDATE subscriptions SET status = ?, updated_at = ? WHERE subscription_id = ?`)
+        .bind(subOutcome, nowIso, sub.subscription_id);
+      batchStatements.push(stmt);
+    }
+
+    const overallOutcome: 'active' | 'expired' = activeRestoredSubs.length > 0 ? 'active' : 'expired';
+
+    // Determine target plan & final terminal expiry date
+    let targetPlanId: string;
+    let finalExpiryDate: string | null;
+
+    if (overallOutcome === 'active') {
+      finalExpiryDate = activeRestoredSubs[0].expiry_date; // Max expiry date of unexpired stack
+      const currentSub = activeRestoredSubs.find(
+        (s) => new Date(s.start_date).getTime() <= now.getTime() && new Date(s.expiry_date!).getTime() > now.getTime()
+      ) || activeRestoredSubs[activeRestoredSubs.length - 1];
+      targetPlanId = currentSub.plan_id;
+    } else {
+      finalExpiryDate = revokedSubs[0].expiry_date;
+      targetPlanId = revokedSubs[0].plan_id;
+    }
+
+    const plan = await this.getPlan(targetPlanId);
+    const planFeatures: string[] = plan.features ? JSON.parse(plan.features) : ALL_STUDENT_OS_FEATURES;
+    const finalFeatures = overallOutcome === 'expired' ? [] : (planFeatures.length > 0 ? planFeatures : ALL_STUDENT_OS_FEATURES);
+    const isPaid = overallOutcome === 'expired' ? 0 : (targetPlanId !== 'free_trial' && targetPlanId !== 'free' ? 1 : 0);
+
+    // 2. Update authoritative entitlement
+    const currentEnt = await this.getEntitlement(accountId);
+    const entitlementId = currentEnt ? currentEnt.entitlement_id : crypto.randomUUID();
+
+    const stmtEnt = this.db
+      .prepare(
+        `INSERT INTO entitlements (
+          entitlement_id, account_id, current_plan_id, status, is_paid,
+          features, expires_at, last_verified_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(account_id) DO UPDATE SET
+          current_plan_id = excluded.current_plan_id,
+          status = excluded.status,
+          is_paid = excluded.is_paid,
+          features = excluded.features,
+          expires_at = excluded.expires_at,
+          last_verified_at = excluded.last_verified_at,
+          updated_at = excluded.updated_at`
+      )
+      .bind(
+        entitlementId,
+        accountId,
+        targetPlanId,
+        overallOutcome,
+        isPaid,
+        JSON.stringify(finalFeatures),
+        finalExpiryDate || null,
+        nowIso,
+        currentEnt ? currentEnt.created_at : nowIso,
+        nowIso
+      );
+    batchStatements.push(stmtEnt);
+
+    // 3. Record audit log
+    const auditDetails = {
+      action: 'CANCEL_REVOKE',
+      reason: reason.trim(),
+      outcome: overallOutcome,
+      restoredCount: revokedSubs.length,
+      activeCount: activeRestoredSubs.length,
+      expiredCount: expiredRestoredSubs.length,
+      restoredSubscriptionIds: revokedSubs.map((s) => s.subscription_id),
+      planId: targetPlanId,
+      originalExpiry: finalExpiryDate,
+      adminAccountId,
+    };
+
+    const stmtAudit = this.db
+      .prepare(
+        `INSERT INTO entitlement_audit_logs (
+          id, account_id, event_type, plan_id, granted_by,
+          source, start_date, expiry_date, details, created_at
+        ) VALUES (?, ?, 'REVOCATION_CANCELLED', ?, ?, 'manual', ?, ?, ?, ?)`
+      )
+      .bind(
+        auditLogId,
+        accountId,
+        targetPlanId,
+        adminAccountId,
+        nowIso,
+        finalExpiryDate || null,
+        JSON.stringify(auditDetails),
+        nowIso
+      );
+    batchStatements.push(stmtAudit);
+
+    await this.db.batch(batchStatements);
+
+    const entitlement: EntitlementDto = {
+      entitlementId,
+      accountId,
+      currentPlanId: targetPlanId,
+      planName: plan.name,
+      status: overallOutcome,
+      isPaid: isPaid === 1,
+      features: finalFeatures,
+      expiresAt: finalExpiryDate || null,
+      lastVerifiedAt: nowIso,
+      createdAt: currentEnt ? currentEnt.created_at : nowIso,
+      updatedAt: nowIso,
+    };
+
+    return { entitlement, outcome: overallOutcome, auditLogId };
+  }
+
+  /**
    * 5. Record Payment & Activate Pro Access
    * Atomically records offline or gateway payment, updates subscriptions,
    * activates paid entitlement, and writes audit trail in a single batch.
@@ -825,7 +1071,7 @@ export class SubscriptionManagementService {
     const plan = await this.getPlan(planId);
 
     // Calculate authoritative monetary amounts in integer paise
-    const listPricePaise = plan.price_cents ?? (planId === 'yearly' ? 249900 : 29900);
+    const listPricePaise = plan.price_cents ?? (planId === 'yearly' ? PLAN_PRICING_PAISE.yearly : PLAN_PRICING_PAISE.monthly);
     const discountAmountPaise = Math.round((listPricePaise * discountPercent) / 100);
     const finalAmountPaise = Math.max(0, listPricePaise - discountAmountPaise);
 
@@ -878,18 +1124,39 @@ export class SubscriptionManagementService {
 
     const currentEnt = await this.getEntitlement(accountId);
     const now = new Date();
-    const startDate = now.toISOString();
+    const nowIso = now.toISOString();
 
-    // Calculate expiry (if active pro with future expiry, extend from current expiry)
+    // Check for existing valid active Pro subscription with future expiry (Rule 4: Stacking)
+    const activeProStmt = this.db
+      .prepare(
+        `SELECT * FROM subscriptions
+         WHERE account_id = ?
+           AND status = 'active'
+           AND plan_id IN ('monthly', 'yearly')
+           AND expiry_date IS NOT NULL
+         ORDER BY expiry_date DESC
+         LIMIT 1`
+      )
+      .bind(accountId);
+    const latestActivePro = await activeProStmt.first<SubscriptionRow>();
+
+    const isStacking = Boolean(
+      latestActivePro &&
+      latestActivePro.expiry_date &&
+      new Date(latestActivePro.expiry_date).getTime() > now.getTime()
+    );
+
+    let startDate: string;
     let expiryDate: string;
-    const isCurrentlyActive = currentEnt && currentEnt.status === 'active' && currentEnt.expires_at;
-    const hasRemainingTime = isCurrentlyActive && new Date(currentEnt.expires_at!).getTime() > now.getTime();
 
-    if (hasRemainingTime) {
-      const existingExpiryMs = new Date(currentEnt.expires_at!).getTime();
-      expiryDate = new Date(existingExpiryMs + durationDays * 24 * 60 * 60 * 1000).toISOString();
+    if (isStacking) {
+      // RULE 4: Sequential Queueing / Stacking after current Pro ends (no overlap)
+      startDate = latestActivePro!.expiry_date!;
+      expiryDate = calculateIstExpiryDate(new Date(startDate), durationDays, planId);
     } else {
-      expiryDate = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000).toISOString();
+      // RULE 5: Immediate activation on current calendar day
+      startDate = nowIso;
+      expiryDate = calculateIstExpiryDate(now, durationDays, planId);
     }
 
     const paymentId = crypto.randomUUID();
@@ -898,8 +1165,40 @@ export class SubscriptionManagementService {
     const planFeatures: string[] = plan.features ? JSON.parse(plan.features) : ALL_STUDENT_OS_FEATURES;
     const finalFeatures = planFeatures.length > 0 ? planFeatures : ALL_STUDENT_OS_FEATURES;
 
-    // Statement 1: Insert Payment row with discount provenance
-    const stmt1 = this.db
+    const batchStatements = [];
+
+    // Statement 1: Supersede previous active non-pro/trial subscriptions (only when NOT stacking)
+    if (!isStacking) {
+      const stmt1 = this.db
+        .prepare(`UPDATE subscriptions SET status = 'superseded', updated_at = ? WHERE account_id = ? AND status = 'active'`)
+        .bind(nowIso, accountId);
+      batchStatements.push(stmt1);
+    }
+
+    // Statement 2: Insert new payment subscription (MUST precede payments INSERT to satisfy FK constraint)
+    const stmt2 = this.db
+      .prepare(
+        `INSERT INTO subscriptions (
+          subscription_id, account_id, plan_id, status, source,
+          granted_by, start_date, expiry_date, cancelled_at,
+          payment_reference, created_at, updated_at
+        ) VALUES (?, ?, ?, 'active', 'payment', ?, ?, ?, NULL, ?, ?, ?)`
+      )
+      .bind(
+        subscriptionId,
+        accountId,
+        plan.plan_id,
+        adminAccountId,
+        startDate,
+        expiryDate,
+        cleanRef || paymentId,
+        nowIso,
+        nowIso
+      );
+    batchStatements.push(stmt2);
+
+    // Statement 3: Insert Payment row referencing the newly inserted subscription_id
+    const stmt3 = this.db
       .prepare(
         `INSERT INTO payments (
           payment_id, account_id, subscription_id, amount_paise,
@@ -922,37 +1221,12 @@ export class SubscriptionManagementService {
         adminAccountId,
         notes?.trim() || null,
         receiptUrl || null,
-        startDate,
-        startDate
+        nowIso,
+        nowIso
       );
+    batchStatements.push(stmt3);
 
-    // Statement 2: Supersede previous active subscriptions
-    const stmt2 = this.db
-      .prepare(`UPDATE subscriptions SET status = 'superseded', updated_at = ? WHERE account_id = ? AND status = 'active'`)
-      .bind(startDate, accountId);
-
-    // Statement 3: Insert new payment subscription
-    const stmt3 = this.db
-      .prepare(
-        `INSERT INTO subscriptions (
-          subscription_id, account_id, plan_id, status, source,
-          granted_by, start_date, expiry_date, cancelled_at,
-          payment_reference, created_at, updated_at
-        ) VALUES (?, ?, ?, 'active', 'payment', ?, ?, ?, NULL, ?, ?, ?)`
-      )
-      .bind(
-        subscriptionId,
-        accountId,
-        plan.plan_id,
-        adminAccountId,
-        startDate,
-        expiryDate,
-        cleanRef || paymentId,
-        startDate,
-        startDate
-      );
-
-    // Statement 4: Upsert authoritative entitlement
+    // Statement 4: Upsert authoritative entitlement (continuous access through final expiryDate)
     const entitlementId = currentEnt ? currentEnt.entitlement_id : crypto.randomUUID();
     const stmt4 = this.db
       .prepare(
@@ -975,14 +1249,15 @@ export class SubscriptionManagementService {
         plan.plan_id,
         JSON.stringify(finalFeatures),
         expiryDate,
-        startDate,
-        currentEnt ? currentEnt.created_at : startDate,
-        startDate
+        nowIso,
+        currentEnt ? currentEnt.created_at : nowIso,
+        nowIso
       );
+    batchStatements.push(stmt4);
 
     // Statement 5: Insert audit log with discount metadata
     const auditDetails = {
-      action: 'PAYMENT_ACTIVATED',
+      action: isStacking ? 'STACK_PRO_PAYMENT' : 'PAYMENT_ACTIVATED',
       paymentId,
       listPricePaise,
       discountPercent,
@@ -994,6 +1269,8 @@ export class SubscriptionManagementService {
       transactionReference: cleanRef,
       planId: plan.plan_id,
       durationDays,
+      isStacking,
+      queuedStartDate: isStacking ? startDate : null,
       previousExpiry: currentEnt?.expires_at || null,
       newExpiry: expiryDate,
       notes: notes?.trim() || null,
@@ -1015,11 +1292,12 @@ export class SubscriptionManagementService {
         startDate,
         expiryDate,
         JSON.stringify(auditDetails),
-        startDate
+        nowIso
       );
+    batchStatements.push(stmt5);
 
-    // Execute all 5 statements atomically
-    await this.db.batch([stmt1, stmt2, stmt3, stmt4, stmt5]);
+    // Execute atomic batch transaction
+    await this.db.batch(batchStatements);
 
     const payment: PaymentDto = {
       paymentId,
@@ -1037,8 +1315,8 @@ export class SubscriptionManagementService {
       recordedBy: adminAccountId,
       notes: notes?.trim() || null,
       receiptUrl: receiptUrl || null,
-      createdAt: startDate,
-      updatedAt: startDate,
+      createdAt: nowIso,
+      updatedAt: nowIso,
     };
 
     const subscription: SubscriptionDto = {
@@ -1053,8 +1331,8 @@ export class SubscriptionManagementService {
       expiryDate,
       cancelledAt: null,
       paymentReference: cleanRef || paymentId,
-      createdAt: startDate,
-      updatedAt: startDate,
+      createdAt: nowIso,
+      updatedAt: nowIso,
     };
 
     const entitlement: EntitlementDto = {
@@ -1066,9 +1344,9 @@ export class SubscriptionManagementService {
       isPaid: true,
       features: finalFeatures,
       expiresAt: expiryDate,
-      lastVerifiedAt: startDate,
-      createdAt: currentEnt ? currentEnt.created_at : startDate,
-      updatedAt: startDate,
+      lastVerifiedAt: nowIso,
+      createdAt: currentEnt ? currentEnt.created_at : nowIso,
+      updatedAt: nowIso,
     };
 
     return { payment, subscription, entitlement, auditLogId };

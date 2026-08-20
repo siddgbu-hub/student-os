@@ -1,4 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import {
+  LayoutDashboard,
+  BookOpen,
+  Calendar,
+  RotateCcw,
+  BarChart3,
+  UserCircle,
+  RefreshCw,
+  AlertTriangle,
+  Lock,
+  Crown,
+  Timer,
+  LogOut,
+  ArrowRight,
+  GraduationCap,
+} from 'lucide-react';
 import { AuthProvider, useAuth } from './context/AuthContext.js';
 import { StudyProvider, useStudy } from './context/StudyContext.js';
 import { PlannerProvider } from './context/PlannerContext.js';
@@ -119,6 +135,15 @@ const WorkspaceShell: React.FC = () => {
   const displayName = profile?.fullName || 'Student';
   const initial = displayName.charAt(0).toUpperCase();
 
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { id: 'study', label: 'Study', icon: BookOpen },
+    { id: 'planner', label: 'Planner', icon: Calendar },
+    { id: 'revision', label: 'Revision', icon: RotateCcw },
+    { id: 'analytics', label: 'Analytics', icon: BarChart3 },
+    { id: 'account', label: 'Account', icon: UserCircle },
+  ] as const;
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-bg-primary)', color: 'var(--color-text-primary)' }}>
       {/* SaaS Style Application Header */}
@@ -126,7 +151,7 @@ const WorkspaceShell: React.FC = () => {
         style={{
           backgroundColor: 'var(--color-bg-secondary)',
           borderBottom: '1px solid var(--color-border)',
-          padding: '0.5rem 1.25rem',
+          padding: '0.45rem 1.25rem',
           position: 'sticky',
           top: 0,
           zIndex: 100,
@@ -144,27 +169,28 @@ const WorkspaceShell: React.FC = () => {
         >
           {/* Brand Logo & Title */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+              onClick={() => setActiveModule('dashboard')}
+            >
               <div
                 style={{
-                  width: '26px',
-                  height: '26px',
-                  borderRadius: '6px',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: 'var(--radius-sm)',
                   backgroundColor: 'var(--color-accent)',
                   color: '#ffffff',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontWeight: '700',
-                  fontSize: '0.85rem',
                 }}
               >
-                S
+                <GraduationCap size={17} />
               </div>
               <h1
                 style={{
-                  fontSize: '1.05rem',
-                  fontWeight: '700',
+                  fontSize: '1rem',
+                  fontWeight: '600',
                   color: 'var(--color-text-primary)',
                   margin: 0,
                   letterSpacing: '-0.02em',
@@ -174,47 +200,44 @@ const WorkspaceShell: React.FC = () => {
               </h1>
             </div>
 
-            {/* Centered / Natural Module Navigation (Desktop) */}
+            {/* Centered Module Navigation (Desktop) */}
             <nav
               className="desktop-nav-container"
               style={{
-                gap: '4px',
-                backgroundColor: 'var(--color-bg-primary)',
+                gap: '2px',
+                backgroundColor: 'var(--color-bg-tertiary)',
                 border: '1px solid var(--color-border)',
                 borderRadius: 'var(--radius-md)',
                 padding: '3px',
-                marginLeft: 'var(--spacing-md)',
+                marginLeft: 'var(--spacing-sm)',
               }}
             >
-              {[
-                { id: 'dashboard', label: 'Dashboard' },
-                { id: 'study', label: 'Study' },
-                { id: 'planner', label: 'Planner' },
-                { id: 'revision', label: 'Revision' },
-                { id: 'analytics', label: 'Analytics' },
-                { id: 'account', label: 'Account' },
-              ].map((item) => {
+              {navItems.map((item) => {
                 const isActive = activeModule === item.id;
+                const IconComponent = item.icon;
                 return (
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => setActiveModule(item.id as typeof activeModule)}
+                    onClick={() => setActiveModule(item.id)}
                     style={{
-                      padding: '5px 14px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '4px 12px',
                       borderRadius: 'var(--radius-sm)',
                       border: 'none',
                       backgroundColor: isActive ? 'var(--color-bg-secondary)' : 'transparent',
                       color: isActive ? 'var(--color-accent)' : 'var(--color-text-secondary)',
-                      fontWeight: isActive ? '700' : '500',
-                      fontSize: '0.82rem',
+                      fontWeight: isActive ? '600' : '500',
+                      fontSize: '0.8125rem',
                       cursor: 'pointer',
-                      boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.08), inset 0 -2px 0 var(--color-accent)' : 'none',
-                      transition: 'all 0.18s cubic-bezier(0.4, 0, 0.2, 1)',
-                      position: 'relative',
+                      boxShadow: isActive ? 'var(--shadow-sm)' : 'none',
+                      transition: 'all 0.15s ease',
                     }}
                   >
-                    {item.label}
+                    <IconComponent size={15} />
+                    <span>{item.label}</span>
                   </button>
                 );
               })}
@@ -222,57 +245,66 @@ const WorkspaceShell: React.FC = () => {
           </div>
 
           {/* User Profile & Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {/* Entitlement Badges */}
             {isActuallyExpired && (
               <button
                 type="button"
                 onClick={() => setShowUpgradeModal(true)}
                 style={{
-                  backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                  color: '#ef4444',
-                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                  color: 'var(--color-error)',
+                  border: '1px solid rgba(239, 68, 68, 0.28)',
                   fontSize: '0.72rem',
-                  fontWeight: '700',
+                  fontWeight: '600',
                   padding: '3px 8px',
-                  borderRadius: '12px',
+                  borderRadius: 'var(--radius-sm)',
                   cursor: 'pointer',
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '4px',
                 }}
               >
-                ⚠️ Trial Expired
+                <AlertTriangle size={13} />
+                <span>Trial Expired</span>
               </button>
             )}
             {isTrialActive && (
               <span
                 style={{
-                  backgroundColor: 'rgba(59, 130, 246, 0.12)',
-                  color: '#3b82f6',
-                  border: '1px solid rgba(59, 130, 246, 0.25)',
+                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                  color: 'var(--color-accent)',
+                  border: '1px solid rgba(59, 130, 246, 0.22)',
                   fontSize: '0.72rem',
-                  fontWeight: '600',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
+                  fontWeight: '500',
+                  padding: '3px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
                 }}
               >
-                Trial
+                <Timer size={13} />
+                <span>Trial</span>
               </span>
             )}
             {isPaidActive && (
               <span
                 style={{
-                  backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                  backgroundColor: 'rgba(245, 158, 11, 0.12)',
                   color: '#f59e0b',
-                  border: '1px solid rgba(245, 158, 11, 0.3)',
+                  border: '1px solid rgba(245, 158, 11, 0.28)',
                   fontSize: '0.72rem',
-                  fontWeight: '700',
-                  padding: '2px 8px',
-                  borderRadius: '12px',
+                  fontWeight: '600',
+                  padding: '3px 8px',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
                 }}
               >
-                ⭐ Pro
+                <Crown size={13} />
+                <span>Pro</span>
               </span>
             )}
 
@@ -281,85 +313,59 @@ const WorkspaceShell: React.FC = () => {
               type="button"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              title="Refresh"
-              aria-label="Refresh"
+              title="Refresh data"
+              aria-label="Refresh data"
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 width: '30px',
                 height: '30px',
-                borderRadius: '50%',
+                borderRadius: 'var(--radius-sm)',
                 backgroundColor: 'var(--color-bg-primary)',
                 border: '1px solid var(--color-border)',
                 color: 'var(--color-text-secondary)',
                 cursor: isRefreshing ? 'not-allowed' : 'pointer',
-                transition: 'all 0.18s ease',
+                transition: 'all 0.15s ease',
               }}
             >
-              <span
-                style={{
-                  display: 'inline-block',
-                  fontSize: '0.85rem',
-                  lineHeight: 1,
-                  animation: isRefreshing ? 'spin 0.8s linear infinite' : 'none',
-                }}
-              >
-                🔄
-              </span>
+              <RefreshCw size={14} style={{ animation: isRefreshing ? 'spin 0.8s linear infinite' : 'none' }} />
             </button>
 
             {account?.email && (
               <button
                 type="button"
                 onClick={() => setActiveModule('account')}
-                title={isPaidActive ? `${account.email} • Student OS Pro Active` : account.email}
+                title={account.email}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
                   padding: '2px 8px 2px 3px',
-                  borderRadius: '16px',
-                  backgroundColor: isPaidActive ? 'rgba(15, 23, 42, 0.6)' : 'var(--color-bg-primary)',
-                  border: isPaidActive ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  backgroundColor: 'var(--color-bg-primary)',
+                  border: '1px solid var(--color-border)',
                   cursor: 'pointer',
-                  boxShadow: isPaidActive ? '0 0 8px rgba(245, 158, 11, 0.15)' : 'none',
-                  transition: 'all 0.18s ease',
+                  transition: 'all 0.15s ease',
                 }}
               >
                 <div
                   style={{
-                    position: 'relative',
                     width: '24px',
                     height: '24px',
-                    borderRadius: '50%',
-                    background: isPaidActive
-                      ? 'linear-gradient(135deg, #ffd700, #f59e0b)'
-                      : 'var(--color-accent)',
-                    padding: isPaidActive ? '1.5px' : '0',
+                    borderRadius: 'var(--radius-xs)',
+                    backgroundColor: isPaidActive ? 'rgba(245, 158, 11, 0.2)' : 'var(--color-accent)',
+                    color: isPaidActive ? '#f59e0b' : '#ffffff',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    fontWeight: '600',
+                    fontSize: '0.75rem',
                   }}
                 >
-                  <div
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      borderRadius: '50%',
-                      backgroundColor: isPaidActive ? '#0f172a' : 'var(--color-accent)',
-                      color: isPaidActive ? '#ffd700' : '#ffffff',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontWeight: isPaidActive ? '800' : '600',
-                      fontSize: '0.72rem',
-                    }}
-                  >
-                    {initial}
-                  </div>
+                  {initial}
                 </div>
-                <span style={{ fontSize: '0.8rem', color: isPaidActive ? 'var(--color-text-primary)' : 'var(--color-text-secondary)', fontWeight: isPaidActive ? '600' : '500' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--color-text-primary)', fontWeight: '500', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {displayName}
                 </span>
               </button>
@@ -367,9 +373,10 @@ const WorkspaceShell: React.FC = () => {
             <Button
               variant="secondary"
               onClick={logout}
-              style={{ fontSize: '0.8rem', padding: '0.3rem 0.75rem', height: '30px' }}
+              style={{ fontSize: '0.78rem', padding: '0.25rem 0.65rem', height: '30px', gap: '4px' }}
             >
-              Sign Out
+              <LogOut size={13} />
+              <span>Sign Out</span>
             </Button>
           </div>
         </div>
@@ -379,19 +386,19 @@ const WorkspaceShell: React.FC = () => {
       {isActuallyExpired && (
         <div
           style={{
-            backgroundColor: '#fef2f2',
-            borderBottom: '1px solid #fecaca',
-            padding: '0.65rem 1.25rem',
+            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+            borderBottom: '1px solid rgba(239, 68, 68, 0.2)',
+            padding: '0.6rem 1.25rem',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: '12px',
-            color: '#991b1b',
-            fontSize: '0.85rem',
+            color: 'var(--color-text-primary)',
+            fontSize: '0.82rem',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+            <AlertTriangle size={16} color="var(--color-error)" style={{ flexShrink: 0 }} />
             <span>
               <strong>Your 7-day free trial has ended.</strong> Study timer, Planner, Revision, and Analytics require an active Pro subscription.
             </span>
@@ -400,12 +407,12 @@ const WorkspaceShell: React.FC = () => {
             variant="primary"
             onClick={() => setShowUpgradeModal(true)}
             style={{
-              fontSize: '0.8rem',
-              padding: '4px 12px',
+              fontSize: '0.78rem',
+              padding: '3px 12px',
               height: '28px',
-              backgroundColor: '#dc2626',
+              backgroundColor: 'var(--color-error)',
               color: '#fff',
-              borderColor: '#dc2626',
+              border: 'none',
               flexShrink: 0,
             }}
           >
@@ -419,36 +426,52 @@ const WorkspaceShell: React.FC = () => {
         {isActuallyExpired && (activeModule === 'study' || activeModule === 'planner' || activeModule === 'revision' || activeModule === 'analytics') ? (
           <div
             style={{
-              maxWidth: '680px',
-              margin: '40px auto',
-              padding: '48px 32px',
-              borderRadius: 'var(--radius-xl)',
+              maxWidth: '560px',
+              margin: '48px auto',
+              padding: '36px 28px',
+              borderRadius: 'var(--radius-lg)',
               backgroundColor: 'var(--color-bg-secondary)',
               border: '1px solid var(--color-border)',
               textAlign: 'center',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
+              boxShadow: 'var(--shadow-md)',
             }}
           >
-            <div style={{ fontSize: '3.5rem', marginBottom: '16px' }}>🔒</div>
-            <h2 style={{ fontSize: '1.6rem', fontWeight: '800', marginBottom: '12px', color: 'var(--color-text-primary)', letterSpacing: '-0.02em' }}>
+            <div
+              style={{
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                color: 'var(--color-error)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginBottom: '16px',
+              }}
+            >
+              <Lock size={24} />
+            </div>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: '600', marginBottom: '8px', color: 'var(--color-text-primary)', letterSpacing: '-0.01em' }}>
               Your 7-day free trial has ended
             </h2>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.95rem', marginBottom: '28px', lineHeight: 1.6, maxWidth: '520px', margin: '0 auto 28px' }}>
+            <p style={{ color: 'var(--color-text-secondary)', fontSize: '0.85rem', marginBottom: '24px', lineHeight: 1.5, maxWidth: '440px', margin: '0 auto 24px' }}>
               Upgrade to Student OS Pro to unlock full access to the Study Engine, Planner, Revision Tracker, and Analytics. Choose a plan to continue your progress.
             </p>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
               <Button
                 variant="primary"
                 onClick={() => setShowUpgradeModal(true)}
                 style={{
-                  padding: '0.75rem 2rem',
-                  fontWeight: '700',
-                  fontSize: '1rem',
+                  padding: '0.5rem 1.5rem',
+                  fontWeight: '600',
+                  fontSize: '0.875rem',
                   backgroundColor: 'var(--color-accent)',
                   color: '#fff',
+                  gap: '6px',
                 }}
               >
-                View Pro Plans & Upgrade →
+                <span>View Pro Plans & Upgrade</span>
+                <ArrowRight size={16} />
               </Button>
             </div>
           </div>
@@ -477,86 +500,20 @@ const WorkspaceShell: React.FC = () => {
         onClose={() => setShowUpgradeModal(false)}
       />
 
-      {/* Fixed Mobile Bottom Navigation Bar (Parity with Android) */}
+      {/* Fixed Mobile Bottom Navigation Bar */}
       <nav className="mobile-bottom-nav" aria-label="Mobile Navigation">
-        {[
-          {
-            id: 'dashboard',
-            label: 'Dashboard',
-            icon: (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="3" width="7" height="7" rx="1" />
-                <rect x="14" y="14" width="7" height="7" rx="1" />
-                <rect x="3" y="14" width="7" height="7" rx="1" />
-              </svg>
-            ),
-          },
-          {
-            id: 'study',
-            label: 'Study',
-            icon: (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <polyline points="12 6 12 12 16 14" />
-              </svg>
-            ),
-          },
-          {
-            id: 'planner',
-            label: 'Planner',
-            icon: (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-            ),
-          },
-          {
-            id: 'revision',
-            label: 'Revision',
-            icon: (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="23 4 23 10 17 10" />
-                <polyline points="1 20 1 14 7 14" />
-                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-              </svg>
-            ),
-          },
-          {
-            id: 'analytics',
-            label: 'Analytics',
-            icon: (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10" />
-                <line x1="12" y1="20" x2="12" y2="4" />
-                <line x1="6" y1="20" x2="6" y2="14" />
-              </svg>
-            ),
-          },
-          {
-            id: 'account',
-            label: 'Account',
-            icon: (
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
-              </svg>
-            ),
-          },
-        ].map((item) => {
+        {navItems.map((item) => {
           const isActive = activeModule === item.id;
+          const IconComponent = item.icon;
           return (
             <button
               key={item.id}
               type="button"
               className={`mobile-nav-item ${isActive ? 'active' : ''}`}
-              onClick={() => setActiveModule(item.id as typeof activeModule)}
+              onClick={() => setActiveModule(item.id)}
               aria-label={item.label}
             >
-              {item.icon}
+              <IconComponent size={18} />
               <span className="mobile-nav-label">{item.label}</span>
             </button>
           );

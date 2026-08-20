@@ -193,7 +193,7 @@ export const StudentsPage: React.FC = () => {
       />
 
       {successToast && (
-        <div className="mb-4 p-3.5 rounded-xl bg-emerald-950/70 border border-emerald-700 text-emerald-200 text-xs flex items-center justify-between shadow-lg animate-in fade-in">
+        <div className="mb-4 p-3.5 rounded-xl bg-emerald-950/70 border border-emerald-700 text-emerald-200 text-xs flex items-center justify-between shadow-lg">
           <div className="flex items-center gap-2.5">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span className="font-medium">{successToast}</span>
@@ -209,23 +209,25 @@ export const StudentsPage: React.FC = () => {
       )}
 
       {/* Search & Filter Toolbar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        {/* Search Bar */}
-        <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            id="student-search-input"
-            aria-label="Search students"
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, email, or account ID..."
-            className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-          />
+      <div className="flex flex-col gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Search Bar */}
+          <div className="relative flex-1 min-w-0 max-w-md">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              id="student-search-input"
+              aria-label="Search students"
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by name, email, or account ID..."
+              className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-800 rounded-lg text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+            />
+          </div>
         </div>
 
-        {/* Status Filter Tabs */}
-        <div className="filter-tabs-container">
+        {/* Status Filter Tabs — full-width row, scrollable on narrow screens */}
+        <div className="filter-tabs-container w-full overflow-x-auto">
           <button
             onClick={() => handleStatusChange('all')}
             className={`filter-tab-btn ${selectedStatus === 'all' ? 'active' : ''}`}

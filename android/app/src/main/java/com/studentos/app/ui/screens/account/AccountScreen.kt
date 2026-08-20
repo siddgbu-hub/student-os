@@ -858,7 +858,7 @@ fun AccountScreen(
                         onClick = {
                             val intent = android.content.Intent(
                                 android.content.Intent.ACTION_VIEW,
-                                android.net.Uri.parse("https://student-os-19f.pages.dev")
+                                android.net.Uri.parse("https://studentos.kryvlance.in")
                             )
                             context.startActivity(intent)
                         },

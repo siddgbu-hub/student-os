@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@student-os/ui';
+import { Flame, Zap, CheckCircle2, Clock, Calendar, FileText, AlertCircle, Plus } from 'lucide-react';
 import { usePlanner } from '../../context/PlannerContext.js';
 import { useStudy } from '../../context/StudyContext.js';
 import { TaskModal } from '../../components/planner/TaskModal.js';
@@ -68,18 +69,18 @@ export const PlannerPage: React.FC = () => {
         <div
           role="alert"
           style={{
-            padding: 'var(--spacing-xs) var(--spacing-md)',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fca5a5',
-            color: '#991b1b',
-            fontSize: '0.85rem',
+            padding: '8px 14px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'rgba(239, 68, 68, 0.08)',
+            border: '1px solid rgba(239, 68, 68, 0.25)',
+            color: 'var(--color-error)',
+            fontSize: '0.82rem',
             display: 'flex',
             alignItems: 'center',
-            gap: 'var(--spacing-xs)',
+            gap: '8px',
           }}
         >
-          <span style={{ fontWeight: 'bold' }}>⚠️</span>
+          <AlertCircle size={16} />
           <span>{errorMessage}</span>
         </div>
       )}
@@ -327,8 +328,9 @@ export const PlannerPage: React.FC = () => {
               {/* HIGH PRIORITY SECTION */}
               {highPriorityTasks.length > 0 && (
                 <div>
-                  <h3 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#dc2626', marginBottom: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>🔥 High Priority Tasks</span>
+                  <h3 style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--color-error)', marginBottom: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Flame size={14} />
+                    <span>High Priority Tasks</span>
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {highPriorityTasks.map((t) => (
@@ -350,8 +352,9 @@ export const PlannerPage: React.FC = () => {
               {/* MEDIUM PRIORITY SECTION */}
               {mediumPriorityTasks.length > 0 && (
                 <div>
-                  <h3 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#d97706', marginBottom: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>⚡ Medium Priority Tasks</span>
+                  <h3 style={{ fontSize: '0.85rem', fontWeight: '600', color: '#f59e0b', marginBottom: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Zap size={14} />
+                    <span>Medium Priority Tasks</span>
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {mediumPriorityTasks.map((t) => (
@@ -373,8 +376,9 @@ export const PlannerPage: React.FC = () => {
               {/* LOW PRIORITY SECTION */}
               {lowPriorityTasks.length > 0 && (
                 <div>
-                  <h3 style={{ fontSize: '0.9rem', fontWeight: '700', color: '#059669', marginBottom: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>🌱 Low Priority Tasks</span>
+                  <h3 style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--color-success)', marginBottom: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <CheckCircle2 size={14} />
+                    <span>Low Priority Tasks</span>
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {lowPriorityTasks.map((t) => (
@@ -396,8 +400,9 @@ export const PlannerPage: React.FC = () => {
               {/* COMPLETED TASKS SECTION */}
               {completedTasks.length > 0 && (
                 <div>
-                  <h3 style={{ fontSize: '0.9rem', fontWeight: '700', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    <span>✅ Completed Tasks ({completedTasks.length})</span>
+                  <h3 style={{ fontSize: '0.85rem', fontWeight: '600', color: 'var(--color-text-muted)', marginBottom: 'var(--spacing-xs)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <CheckCircle2 size={14} />
+                    <span>Completed Tasks ({completedTasks.length})</span>
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {completedTasks.map((t) => (
@@ -629,10 +634,10 @@ const TaskItemCard: React.FC<TaskItemCardProps> = ({
             </span>
           </div>
 
-          <div style={{ display: 'flex', gap: '8px', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '2px' }}>
-            <span>⏱ {task.estimatedDurationMinutes} mins</span>
-            {task.plannedStartTime && <span>🕒 {task.plannedStartTime}</span>}
-            {task.notes && <span style={{ fontStyle: 'italic' }}>📝 {task.notes}</span>}
+          <div style={{ display: 'flex', gap: '12px', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '4px' }}>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Clock size={12} /> {task.estimatedDurationMinutes} mins</span>
+            {task.plannedStartTime && <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Calendar size={12} /> {task.plannedStartTime}</span>}
+            {task.notes && <span style={{ fontStyle: 'italic', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><FileText size={12} /> {task.notes}</span>}
           </div>
         </div>
       </div>

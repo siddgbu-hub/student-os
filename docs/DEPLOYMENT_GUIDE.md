@@ -50,7 +50,7 @@ The web application uses Google Identity Services (GSI) Credential Callback flow
 - **Google OAuth Web Client ID**: Configured in `frontend/.env` (`VITE_GOOGLE_CLIENT_ID`) and `backend/wrangler.jsonc` (`GOOGLE_CLIENT_ID`).
 - **Authorized JavaScript Origins**:
   - Development: `http://localhost:5175`, `http://localhost:5176`
-  - Production: `https://5185278c.student-os-19f.pages.dev`
+  - Production: `https://studentos.kryvlance.in`, `https://5185278c.student-os-19f.pages.dev`
 - **Authorized Redirect URIs**: None required (GSI client-side credential callback flow).
 
 ---
@@ -94,5 +94,5 @@ npx wrangler pages deploy dist --project-name=student-os-app
 
 ## 5. Post-Deployment Verification
 1. Test Health Check endpoint: `GET https://<api-subdomain>.workers.dev/api/v1/health`
-2. Open application URL: `https://student-os-app.pages.dev`
+2. Open application URL: `https://studentos.kryvlance.in` (Admin: `https://admin.studentos.kryvlance.in`)
 3. Verify authentication, study engine, planner workspace, revision workspace, analytics dashboard, and account page.

@@ -20,6 +20,7 @@ import {
   ExtendSubscriptionRequestSchema,
   ChangePlanRequestSchema,
   RevokeSubscriptionRequestSchema,
+  CancelRevokeSubscriptionRequestSchema,
   RecordPaymentRequestSchema,
   AdminPaymentsQuerySchema,
   AdminAuditLogsQuerySchema,
@@ -306,6 +307,46 @@ adminRouter.post('/subscriptions/revoke', requireAdminPermission('subscription.r
   const subService = new SubscriptionManagementService(c.env.DB);
   try {
     const result = await subService.revokeAccess({
+      ...parseResult.data,
+      adminAccountId,
+    });
+    return c.json({ success: true, data: result }, 200);
+  } catch (err: unknown) {
+    return handleAdminError(err, c);
+  }
+});
+
+// ----------------------------------------------------
+// G2. Cancel Revoke (Restore Subscription Access)
+// ----------------------------------------------------
+adminRouter.post('/subscriptions/cancel-revoke', requireAdminPermission('subscription.revoke'), async (c) => {
+  const adminAccountId = c.get('accountId');
+
+  let rawBody: unknown;
+  try {
+    rawBody = await c.req.json();
+  } catch {
+    return c.json(
+      { success: false, error: { code: 'VALIDATION_ERROR', message: 'Malformed JSON payload' }, timestamp: new Date().toISOString() },
+      400
+    );
+  }
+
+  const parseResult = CancelRevokeSubscriptionRequestSchema.safeParse(rawBody);
+  if (!parseResult.success) {
+    return c.json(
+      {
+        success: false,
+        error: { code: 'VALIDATION_ERROR', message: parseResult.error.errors[0]?.message || 'Invalid cancel-revoke payload' },
+        timestamp: new Date().toISOString(),
+      },
+      400
+    );
+  }
+
+  const subService = new SubscriptionManagementService(c.env.DB);
+  try {
+    const result = await subService.cancelRevoke({
       ...parseResult.data,
       adminAccountId,
     });
